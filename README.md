@@ -56,7 +56,7 @@ Le dump colonné des exports admin Slack :
 
 ```
 Name                   ID                 Email
-alice_martin           U09MJ41Q0RJ        alice.martin@ext.adeo.com
+martin_dupont           T09MJ41Q0ZX        alice.martin@gmail.com
 ```
 
 Sont aussi reconnus : TSV, CSV, et le `users.json` d'un export Slack complet.
