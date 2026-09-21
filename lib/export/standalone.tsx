@@ -1,0 +1,280 @@
+"use client";
+
+import * as React from "react";
+
+import { MessageList } from "@/components/slack/message-list";
+import { formatFull } from "@/lib/slack/parse";
+import { resolveUser } from "@/lib/slack/users";
+import type {
+  ConversationMeta,
+  NormalizedMessage,
+  UserDirectory,
+} from "@/lib/slack/types";
+
+export interface ExportOptions {
+  meta: ConversationMeta;
+  messages: NormalizedMessage[];
+  directory: UserDirectory;
+  overrides: Record<string, string>;
+  showEmail: boolean;
+  dark: boolean;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  CSS collection                                                             */
+/* -------------------------------------------------------------------------- */
+
+/** Reads every same-origin stylesheet currently applied to the document. */
+function collectCss(): string {
+  const chunks: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const rules = sheet.cssRules;
+      if (!rules) continue;
+      for (const rule of Array.from(rules)) chunks.push(rule.cssText);
+    } catch {
+      // cross-origin stylesheet — skipped, we ship no external CSS anyway
+    }
+  }
+  return chunks.join("\n");
+}
+
+const FONT_OVERRIDE = `
+:root{--font-lato:"Lato","Slack-Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+html,body{margin:0;padding:0}
+@media print{
+  .no-print{display:none!important}
+  .slack-msg{break-inside:avoid}
+  #slack-scroll{overflow:visible!important;height:auto!important}
+}
+`;
+
+/* -------------------------------------------------------------------------- */
+/*  Runtime script embedded in the exported page                               */
+/* -------------------------------------------------------------------------- */
+
+const RUNTIME = String.raw`
+(function () {
+  var root = document.documentElement;
+  var list = document.getElementById('slack-messages');
+  var msgs = Array.prototype.slice.call(list.querySelectorAll('[data-msg]'));
+  var days = Array.prototype.slice.call(list.querySelectorAll('[data-day-divider]'));
+  var search = document.getElementById('x-search');
+  var author = document.getElementById('x-author');
+  var count = document.getElementById('x-count');
+  var themeBtn = document.getElementById('x-theme');
+  var printBtn = document.getElementById('x-print');
+  var topBtn = document.getElementById('x-top');
+  var clearBtn = document.getElementById('x-clear');
+
+  try {
+    var saved = localStorage.getItem('slack-export-theme');
+    if (saved === 'dark') root.classList.add('dark');
+    if (saved === 'light') root.classList.remove('dark');
+  } catch (e) {}
+
+  function unmark(el) {
+    var marks = el.querySelectorAll('mark.slack-hit-live');
+    for (var i = 0; i < marks.length; i++) {
+      var m = marks[i];
+      m.replaceWith(document.createTextNode(m.textContent));
+    }
+    el.normalize();
+  }
+
+  function mark(el, needle) {
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    var targets = [];
+    var node;
+    while ((node = walker.nextNode())) {
+      if (node.nodeValue && node.nodeValue.toLowerCase().indexOf(needle) !== -1) {
+        targets.push(node);
+      }
+    }
+    for (var i = 0; i < targets.length; i++) {
+      var text = targets[i].nodeValue;
+      var lower = text.toLowerCase();
+      var frag = document.createDocumentFragment();
+      var cursor = 0;
+      var hit = lower.indexOf(needle);
+      while (hit !== -1) {
+        if (hit > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, hit)));
+        var m = document.createElement('mark');
+        m.className = 'slack-hit slack-hit-live';
+        m.textContent = text.slice(hit, hit + needle.length);
+        frag.appendChild(m);
+        cursor = hit + needle.length;
+        hit = lower.indexOf(needle, cursor);
+      }
+      if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+      targets[i].parentNode.replaceChild(frag, targets[i]);
+    }
+  }
+
+  function apply() {
+    var q = (search.value || '').trim().toLowerCase();
+    var who = author.value;
+    var visible = 0;
+    var shownDays = {};
+
+    for (var i = 0; i < msgs.length; i++) {
+      var m = msgs[i];
+      var ok = (!q || m.getAttribute('data-search').indexOf(q) !== -1) &&
+               (!who || m.getAttribute('data-user') === who);
+      m.hidden = !ok;
+      unmark(m);
+      if (ok) {
+        visible++;
+        shownDays[m.getAttribute('data-day')] = true;
+        if (q.length > 1) mark(m, q);
+      }
+    }
+
+    for (var j = 0; j < days.length; j++) {
+      days[j].hidden = !shownDays[days[j].getAttribute('data-day-divider')];
+    }
+
+    list.classList.toggle('slack-filtering', Boolean(q || who));
+    count.textContent = visible === msgs.length
+      ? msgs.length + ' messages'
+      : visible + ' / ' + msgs.length + ' messages';
+    clearBtn.hidden = !(q || who);
+  }
+
+  search.addEventListener('input', apply);
+  author.addEventListener('change', apply);
+  clearBtn.addEventListener('click', function () {
+    search.value = '';
+    author.value = '';
+    apply();
+    search.focus();
+  });
+  themeBtn.addEventListener('click', function () {
+    root.classList.toggle('dark');
+    try {
+      localStorage.setItem('slack-export-theme', root.classList.contains('dark') ? 'dark' : 'light');
+    } catch (e) {}
+  });
+  printBtn.addEventListener('click', function () { window.print(); });
+  topBtn.addEventListener('click', function () {
+    document.getElementById('slack-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); search.focus(); search.select(); }
+    if (e.key === 'Escape' && document.activeElement === search) { search.value = ''; apply(); }
+  });
+
+  apply();
+})();
+`;
+
+/* -------------------------------------------------------------------------- */
+/*  Markup                                                                     */
+/* -------------------------------------------------------------------------- */
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function toolbar(options: ExportOptions): string {
+  const { meta, messages, directory, overrides } = options;
+  const authors = meta.participants
+    .map((id) => {
+      const user = resolveUser(id, directory, overrides);
+      return `<option value="${escapeHtml(id)}">${escapeHtml(user.name)}</option>`;
+    })
+    .join("");
+
+  const first = messages[0];
+  const last = messages[messages.length - 1];
+  const range =
+    first && last
+      ? `${formatFull(first.date)} → ${formatFull(last.date)}`
+      : "";
+
+  const icon =
+    meta.kind === "channel"
+      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>`
+      : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/></svg>`;
+
+  return `
+<header class="no-print sticky top-0 z-10 flex h-[49px] shrink-0 items-center gap-3 border-b px-4" style="background:var(--slack-bg);border-color:var(--slack-border)">
+  <div class="flex min-w-0 items-center gap-1.5" style="color:var(--slack-fg)">
+    ${icon}
+    <span class="truncate text-[18px] font-black">${escapeHtml(meta.displayName)}</span>
+  </div>
+  <span id="x-count" class="shrink-0 rounded-full border px-2 py-[2px] text-[11px] font-bold" style="border-color:var(--slack-border);color:var(--slack-fg-muted)"></span>
+  <div class="ml-auto flex items-center gap-2">
+    <input id="x-search" type="search" placeholder="Rechercher…" class="h-8 w-44 rounded-md border px-3 text-[13px] outline-none sm:w-64" style="background:var(--slack-bg);border-color:var(--slack-border);color:var(--slack-fg)" />
+    <select id="x-author" class="h-8 rounded-md border px-2 text-[13px] outline-none" style="background:var(--slack-bg);border-color:var(--slack-border);color:var(--slack-fg)">
+      <option value="">Tous les auteurs</option>
+      ${authors}
+    </select>
+    <button id="x-clear" hidden class="h-8 rounded-md border px-2 text-[13px]" style="border-color:var(--slack-border);color:var(--slack-fg)">Effacer</button>
+    <button id="x-theme" title="Thème clair / sombre" class="flex h-8 w-8 items-center justify-center rounded-md border" style="border-color:var(--slack-border);color:var(--slack-fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
+    <button id="x-print" title="Imprimer / PDF" class="flex h-8 w-8 items-center justify-center rounded-md border" style="border-color:var(--slack-border);color:var(--slack-fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg></button>
+    <button id="x-top" title="Remonter" class="flex h-8 w-8 items-center justify-center rounded-md border" style="border-color:var(--slack-border);color:var(--slack-fg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  </div>
+</header>
+<div class="no-print px-4 py-1 text-[11px]" style="background:var(--slack-bg);color:var(--slack-fg-muted);border-bottom:1px solid var(--slack-border-soft)">
+  ${escapeHtml(range)}
+</div>`;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Entry point                                                                */
+/* -------------------------------------------------------------------------- */
+
+export async function buildStandaloneHtml(options: ExportOptions): Promise<string> {
+  const { renderToStaticMarkup } = await import("react-dom/server.browser");
+
+  const body = renderToStaticMarkup(
+    <MessageList
+      messages={options.messages}
+      directory={options.directory}
+      overrides={options.overrides}
+      showEmail={options.showEmail}
+      isStatic
+    />
+  );
+
+  const css = collectCss();
+  const title = `${options.meta.displayName} — Slack`;
+
+  return `<!doctype html>
+<html lang="fr"${options.dark ? ' class="dark"' : ""}>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="Slack JSON Viewer" />
+<title>${escapeHtml(title)}</title>
+<style>${css}</style>
+<style>${FONT_OVERRIDE}</style>
+</head>
+<body class="${options.showEmail ? "" : "slack-hide-emails"}">
+<div class="flex h-svh flex-col" style="background:var(--slack-bg);color:var(--slack-fg)">
+${toolbar(options)}
+<main id="slack-scroll" class="slack-scroll flex-1 overflow-y-auto">
+${body}
+</main>
+</div>
+<script>${RUNTIME}</script>
+</body>
+</html>`;
+}
+
+export function downloadHtml(fileName: string, html: string) {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
