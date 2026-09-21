@@ -6,6 +6,21 @@ l'exporte en **page HTML autonome** qu'on ouvre d'un double-clic, hors ligne.
 Tout se passe dans le navigateur : aucun fichier n'est envoyé à un serveur,
 aucune API route, aucune base de données.
 
+## Préparer les sources
+
+Extraire les sources avec `slackdump`, puis dézipper l'archive pour récupérer le
+fichier JSON de la conversation :
+
+```bash
+slackdump dump https://<workspace-name>.slack.com/archives/C0AE23W6W0J
+```
+
+Pour récupérer la liste des utilisateurs :
+
+```bash
+slackdump list users
+```
+
 ## Fonctionnalités
 
 - **Chargement** par glisser-déposer ou via l'explorateur de fichiers.
