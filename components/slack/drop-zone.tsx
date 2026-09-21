@@ -3,6 +3,7 @@
 import * as React from "react";
 import { FileJson, Upload, Users } from "lucide-react";
 
+import { GithubLink, ReadmeLink } from "@/components/slack/github-link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -130,6 +131,12 @@ export function DropZone({
           Tout est traité dans votre navigateur : aucun fichier n&apos;est envoyé
           sur un serveur.
         </p>
+
+        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground/70">
+          <ReadmeLink className="hover:text-foreground hover:underline" />
+          <span aria-hidden="true">·</span>
+          <GithubLink className="hover:text-foreground" />
+        </div>
       </div>
     </div>
   );

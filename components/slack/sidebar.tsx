@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { GithubLink, ReadmeLink } from "@/components/slack/github-link";
 import { resolveUser } from "@/lib/slack/users";
 import type { ConversationMeta, UserDirectory } from "@/lib/slack/types";
 import { cn } from "@/lib/utils";
@@ -121,11 +122,18 @@ export function Sidebar({
       </div>
 
       <div
-        className="border-t px-4 py-2 text-[11px] opacity-60"
+        className="border-t px-4 py-2 text-[11px]"
         style={{ borderColor: "rgba(255,255,255,.12)" }}
       >
-        Annuaire : {directorySize.toLocaleString("fr-FR")} utilisateur
-        {directorySize > 1 ? "s" : ""}
+        <p className="opacity-60">
+          Annuaire : {directorySize.toLocaleString("fr-FR")} utilisateur
+          {directorySize > 1 ? "s" : ""}
+        </p>
+        <div className="mt-1 flex items-center gap-2 opacity-45">
+          <ReadmeLink />
+          <span aria-hidden="true">·</span>
+          <GithubLink />
+        </div>
       </div>
     </aside>
   );
