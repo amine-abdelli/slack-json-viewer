@@ -37,7 +37,12 @@ import {
 } from "@/lib/slack/parse";
 import { parseUserDirectory, resolveUser } from "@/lib/slack/users";
 import { buildStandaloneHtml, downloadHtml } from "@/lib/export/standalone";
-import type { SlackConversation, UserDirectory } from "@/lib/slack/types";
+import { Message } from "@/components/slack/message";
+import type {
+  NormalizedMessage,
+  SlackConversation,
+  UserDirectory,
+} from "@/lib/slack/types";
 
 const LS_DIRECTORY = "slack-viewer:directory";
 const LS_DIRECTORY_NAME = "slack-viewer:directory-name";
@@ -84,6 +89,7 @@ export function Viewer() {
   const [dark, setDark] = React.useState(prefs.dark === true);
   const [error, setError] = React.useState<string | null>(null);
   const [namesOpen, setNamesOpen] = React.useState(false);
+  const [thread, setThread] = React.useState<NormalizedMessage | null>(null);
   const [exporting, setExporting] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
 
@@ -278,14 +284,14 @@ export function Viewer() {
           className="flex h-[49px] shrink-0 items-center gap-3 border-b px-4"
           style={{ borderColor: "var(--slack-border)" }}
         >
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             {meta.kind === "channel" ? (
               <Hash className="size-4 shrink-0" style={{ color: "var(--slack-fg)" }} />
             ) : (
               <Lock className="size-4 shrink-0" style={{ color: "var(--slack-fg)" }} />
             )}
             <h1
-              className="truncate text-[18px] font-black"
+              className="min-w-0 truncate text-[18px] font-black"
               style={{ color: "var(--slack-fg)" }}
               title={meta.rawName}
             >
@@ -293,7 +299,7 @@ export function Viewer() {
             </h1>
           </div>
           <span
-            className="hidden shrink-0 rounded-full border px-2 py-[2px] text-[11px] font-bold lg:inline"
+            className="hidden shrink-0 rounded-full border px-2 py-[2px] text-[11px] font-bold xl:inline"
             style={{
               borderColor: "var(--slack-border)",
               color: "var(--slack-fg-muted)",
@@ -304,7 +310,7 @@ export function Viewer() {
               : `${filtered.length} / ${messages.length} messages`}
           </span>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2"
@@ -314,7 +320,7 @@ export function Viewer() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher dans la conversation"
-                className="h-8 w-48 pl-8 text-[13px] lg:w-72"
+                className="h-8 w-40 pl-8 text-[13px] lg:w-52 2xl:w-72"
               />
               {query ? (
                 <button
@@ -358,7 +364,8 @@ export function Viewer() {
               ) : (
                 <Download />
               )}
-              Exporter en HTML
+              <span className="hidden lg:inline">Exporter en HTML</span>
+              <span className="lg:hidden">Exporter</span>
             </Button>
             <input
               ref={fileInput}
@@ -425,10 +432,23 @@ export function Viewer() {
               highlight={query.trim().length > 1 ? query.trim() : undefined}
               showEmail={showEmail}
               filtering={filtering}
+              onOpenThread={setThread}
             />
           )}
         </main>
       </div>
+
+      {thread ? (
+        <ThreadPanel
+          thread={thread}
+          channelName={meta.displayName}
+          directory={directory}
+          overrides={overrides}
+          highlight={query.trim().length > 1 ? query.trim() : undefined}
+          showEmail={showEmail}
+          onClose={() => setThread(null)}
+        />
+      ) : null}
 
       {dragging ? (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -450,6 +470,104 @@ export function Viewer() {
         onSave={saveOverrides}
       />
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Thread panel                                                               */
+/* -------------------------------------------------------------------------- */
+
+function ThreadPanel({
+  thread,
+  channelName,
+  directory,
+  overrides,
+  highlight,
+  showEmail,
+  onClose,
+}: {
+  thread: NormalizedMessage;
+  channelName: string;
+  directory: UserDirectory;
+  overrides: Record<string, string>;
+  highlight?: string;
+  showEmail: boolean;
+  onClose: () => void;
+}) {
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <aside
+      className="flex w-full max-w-[420px] shrink-0 flex-col border-l"
+      style={{ background: "var(--slack-bg)", borderColor: "var(--slack-border)" }}
+    >
+      <header
+        className="flex h-[49px] shrink-0 items-center gap-2 border-b px-4"
+        style={{ borderColor: "var(--slack-border)" }}
+      >
+        <div className="min-w-0">
+          <p className="text-[15px] font-black" style={{ color: "var(--slack-fg)" }}>
+            Fil de discussion
+          </p>
+          <p className="truncate text-[11px]" style={{ color: "var(--slack-fg-muted)" }}>
+            {channelName}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="ml-auto"
+          onClick={onClose}
+          title="Fermer le fil (Échap)"
+        >
+          <X />
+        </Button>
+      </header>
+
+      <div className="slack-scroll slack-thread-panel flex-1 overflow-y-auto py-3">
+        <Message
+          message={{ ...thread, grouped: false }}
+          directory={directory}
+          overrides={overrides}
+          highlight={highlight}
+          showEmail={showEmail}
+          inThread
+        />
+
+        <div className="relative my-3 px-4">
+          <div
+            className="absolute inset-x-4 top-1/2 h-px"
+            style={{ background: "var(--slack-border)" }}
+          />
+          <div className="relative flex">
+            <span
+              className="pr-3 text-[13px] font-bold"
+              style={{ background: "var(--slack-bg)", color: "var(--slack-fg-muted)" }}
+            >
+              {thread.replyCount} réponse{thread.replyCount > 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+
+        {thread.replies.map((reply) => (
+          <Message
+            key={reply.key}
+            message={reply}
+            directory={directory}
+            overrides={overrides}
+            highlight={highlight}
+            showEmail={showEmail}
+            inThread
+          />
+        ))}
+      </div>
+    </aside>
   );
 }
 

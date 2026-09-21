@@ -247,6 +247,50 @@
 .slack-filtering .slack-msg[data-grouped="true"] .slack-msg-time {
   display: none;
 }
+/* Threads ------------------------------------------------------------------ */
+.slack-thread-bar {
+  cursor: pointer;
+}
+.slack-thread-bar:hover {
+  background: var(--slack-bg);
+  border-color: var(--slack-border) !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+}
+/* The replies live inside their root message so the exported page can clone
+   them into the thread panel; they are never part of the main flow. */
+.slack-thread-source {
+  display: none !important;
+}
+/* Inside the panel the same markup is shown. */
+.slack-thread-panel .slack-thread-source {
+  display: block !important;
+}
+.slack-thread-panel .slack-msg {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.slack-thread-panel .slack-thread-bar {
+  display: none;
+}
+.slack-thread-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--slack-fg-muted);
+}
+.slack-thread-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--slack-border);
+}
+#x-thread[hidden] {
+  display: none !important;
+}
+
 .slack-hide-emails .slack-msg-email {
   display: none;
 }

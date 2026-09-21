@@ -38,10 +38,18 @@ export interface SlackFile {
   title?: string;
   mimetype?: string;
   filetype?: string;
+  pretty_type?: string;
+  mode?: string;
   size?: number;
   url_private?: string;
+  url_private_download?: string;
   permalink?: string;
+  preview?: string;
   thumb_360?: string;
+  thumb_480?: string;
+  thumb_720?: string;
+  original_w?: number;
+  original_h?: number;
 }
 
 export type SlackRichTextStyle = {
@@ -102,7 +110,11 @@ export interface SlackMessage {
   files?: SlackFile[];
   blocks?: SlackBlock[] | null;
   metadata?: { event_type?: string; event_payload?: unknown } | null;
+  permalink?: string;
+  /** Slack API / official export shape. */
   replies?: SlackMessage[];
+  /** slackdump shape: the root message repeated, followed by its replies. */
+  slackdump_thread_replies?: SlackMessage[];
   [key: string]: unknown;
 }
 
@@ -140,8 +152,19 @@ export interface NormalizedMessage {
   attachments: SlackAttachment[];
   files: SlackFile[];
   blocks: SlackBlock[];
+  subtype?: string;
+  permalink?: string;
+  /** `ts` of the thread root, when this message belongs to a thread */
+  threadTs?: string;
+  /** true when this message is a reply rather than the thread root */
   isThreadReply: boolean;
   replyCount: number;
+  replyUsers: string[];
+  latestReply?: Date;
+  /** replies attached to a thread root, in chronological order */
+  replies: NormalizedMessage[];
+  /** a reply whose root is missing from the export */
+  orphanReply: boolean;
   /** true when this message continues the previous author's group */
   grouped: boolean;
 }

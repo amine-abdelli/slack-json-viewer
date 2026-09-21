@@ -8,6 +8,7 @@ import type {
   UserDirectory,
 } from "./types";
 import { normalizeShortcode } from "./emoji";
+import { isBuiltinUser } from "./users";
 
 /* -------------------------------------------------------------------------- */
 /*  Validation                                                                 */
@@ -83,9 +84,12 @@ export function buildMeta(
   const isMpdm = handles.length > 0;
   const isDm = !isMpdm && channel_id.startsWith("D");
 
+  const all = flattenMessages(messages);
   const participants = Array.from(
-    new Set(messages.map((m) => m.user).filter((u): u is string => Boolean(u)))
+    new Set(all.map((m) => m.user).filter((u): u is string => Boolean(u)))
   );
+
+  const nameOf = (id: string) => directory[id]?.name ?? id;
 
   const displayName = isMpdm
     ? handles
@@ -95,10 +99,13 @@ export function buildMeta(
         })
         .join(", ")
     : isDm
-      ? prettify(name)
-      : name;
-
-  const sorted = [...messages].sort((a, b) => Number(a.ts) - Number(b.ts));
+      ? // A direct message export usually has no name: fall back to whoever
+        // actually spoke in it.
+        (name
+          ? prettify(name)
+          : participants.filter((id) => id !== "USLACKBOT").map(nameOf).join(", ") ||
+            channel_id)
+      : name || channel_id;
 
   return {
     channelId: channel_id,
@@ -106,9 +113,9 @@ export function buildMeta(
     displayName,
     kind: isMpdm ? "group-dm" : isDm ? "dm" : "channel",
     participants,
-    messageCount: messages.length,
-    firstTs: sorted[0]?.ts,
-    lastTs: sorted[sorted.length - 1]?.ts,
+    messageCount: all.length,
+    firstTs: all[0]?.ts,
+    lastTs: all[all.length - 1]?.ts,
   };
 }
 
@@ -132,10 +139,12 @@ export function suggestUnknownNames(
   const handles = parseMpdmHandles(conversation.name);
   const ids = Array.from(
     new Set(
-      conversation.messages.map((m) => m.user).filter((u): u is string => Boolean(u))
+      flattenMessages(conversation.messages)
+        .map((m) => m.user)
+        .filter((u): u is string => Boolean(u))
     )
   );
-  const unknownIds = ids.filter((id) => !directory[id]);
+  const unknownIds = ids.filter((id) => !directory[id] && !isBuiltinUser(id));
   const claimed = new Set(
     ids
       .map((id) => directory[id]?.realName)
@@ -180,52 +189,182 @@ export function blocksToPlainText(blocks: SlackBlock[] | null | undefined): stri
   return out.join(" ");
 }
 
+/**
+ * Walks a message list and pulls out every message it can find, including the
+ * replies nested under a thread root.
+ *
+ * Two export shapes are handled:
+ *  - Slack's own: `replies: [...]` on the root, replies also present at the top
+ *    level of the conversation;
+ *  - slackdump's: `slackdump_thread_replies: [root, ...replies]`, replies absent
+ *    from the top level.
+ */
+export function flattenMessages(messages: SlackMessage[]): SlackMessage[] {
+  const byTs = new Map<string, SlackMessage>();
+
+  const visit = (raw: SlackMessage) => {
+    if (!raw || typeof raw.ts !== "string") return;
+    const existing = byTs.get(raw.ts);
+    // Prefer the richest copy: a root carries reply metadata its clone may miss.
+    if (!existing || Object.keys(raw).length > Object.keys(existing).length) {
+      byTs.set(raw.ts, raw);
+    }
+    raw.slackdump_thread_replies?.forEach(visit);
+    raw.replies?.forEach(visit);
+  };
+
+  messages.forEach(visit);
+  return Array.from(byTs.values()).sort((a, b) => Number(a.ts) - Number(b.ts));
+}
+
+interface NormalizeOne {
+  raw: SlackMessage;
+  index: number;
+  previous?: NormalizedMessage;
+  directory: UserDirectory;
+  overrides: Record<string, string>;
+}
+
+function normalizeOne({
+  raw,
+  index,
+  previous,
+  directory,
+  overrides,
+}: NormalizeOne): NormalizedMessage {
+  const date = tsToDate(raw.ts);
+  const userId = raw.user ?? raw.bot_id ?? "unknown";
+  const blocks = (raw.blocks ?? []) as SlackBlock[];
+  const text = raw.text ?? "";
+  const blockText = blocksToPlainText(blocks);
+  const attachmentText = (raw.attachments ?? [])
+    .map((a) => [a.title, a.text, a.fallback, a.original_url].filter(Boolean).join(" "))
+    .join(" ");
+  const fileText = (raw.files ?? [])
+    .map((f) => [f.title, f.name, f.preview].filter(Boolean).join(" "))
+    .join(" ");
+  const displayName = overrides[userId] ?? directory[userId]?.name ?? userId;
+
+  const grouped =
+    Boolean(previous) &&
+    previous!.userId === userId &&
+    previous!.dayKey === dayKey(date) &&
+    date.getTime() - previous!.date.getTime() < GROUP_WINDOW_MS;
+
+  return {
+    key: raw.client_msg_id ?? `${raw.ts}-${index}`,
+    raw,
+    userId,
+    ts: raw.ts,
+    date,
+    dayKey: dayKey(date),
+    text,
+    searchText:
+      `${displayName} ${text} ${blockText} ${attachmentText} ${fileText}`.toLowerCase(),
+    edited: Boolean(raw.edited && raw.edited.ts),
+    reactions: raw.reactions ?? [],
+    attachments: raw.attachments ?? [],
+    files: raw.files ?? [],
+    blocks,
+    subtype: raw.subtype,
+    permalink: typeof raw.permalink === "string" ? raw.permalink : undefined,
+    threadTs: raw.thread_ts,
+    isThreadReply: Boolean(raw.thread_ts && raw.thread_ts !== raw.ts),
+    replyCount: raw.reply_count ?? 0,
+    replyUsers: raw.reply_users ?? [],
+    latestReply: raw.latest_reply ? tsToDate(raw.latest_reply) : undefined,
+    replies: [],
+    orphanReply: false,
+    grouped,
+  };
+}
+
+/**
+ * Produces the main conversation flow: thread roots and standalone messages,
+ * with each root carrying its replies. Replies never appear in the flow —
+ * exactly like Slack — unless their root is missing from the export.
+ */
 export function normalizeMessages(
   messages: SlackMessage[],
   directory: UserDirectory,
   overrides: Record<string, string> = {}
 ): NormalizedMessage[] {
-  const sorted = [...messages].sort((a, b) => Number(a.ts) - Number(b.ts));
+  const all = flattenMessages(messages);
+  const rootTimestamps = new Set(
+    all.filter((m) => !m.thread_ts || m.thread_ts === m.ts).map((m) => m.ts)
+  );
+
+  const repliesByRoot = new Map<string, SlackMessage[]>();
+  const flow: SlackMessage[] = [];
+
+  for (const raw of all) {
+    const isReply = Boolean(raw.thread_ts && raw.thread_ts !== raw.ts);
+    if (isReply && rootTimestamps.has(raw.thread_ts!)) {
+      const bucket = repliesByRoot.get(raw.thread_ts!) ?? [];
+      bucket.push(raw);
+      repliesByRoot.set(raw.thread_ts!, bucket);
+    } else {
+      flow.push(raw);
+    }
+  }
+
   const result: NormalizedMessage[] = [];
 
-  sorted.forEach((raw, index) => {
-    const date = tsToDate(raw.ts);
-    const userId = raw.user ?? raw.bot_id ?? "unknown";
-    const blocks = (raw.blocks ?? []) as SlackBlock[];
-    const text = raw.text ?? "";
-    const blockText = blocksToPlainText(blocks);
-    const attachmentText = (raw.attachments ?? [])
-      .map((a) => [a.title, a.text, a.fallback, a.original_url].filter(Boolean).join(" "))
-      .join(" ");
-    const displayName =
-      overrides[userId] ?? directory[userId]?.name ?? userId;
-
-    const previous = result[result.length - 1];
-    const grouped =
-      Boolean(previous) &&
-      previous.userId === userId &&
-      previous.dayKey === dayKey(date) &&
-      date.getTime() - previous.date.getTime() < GROUP_WINDOW_MS;
-
-    result.push({
-      key: raw.client_msg_id ?? `${raw.ts}-${index}`,
+  flow.forEach((raw, index) => {
+    const message = normalizeOne({
       raw,
-      userId,
-      ts: raw.ts,
-      date,
-      dayKey: dayKey(date),
-      text,
-      searchText: `${displayName} ${text} ${blockText} ${attachmentText}`.toLowerCase(),
-      edited: Boolean(raw.edited && raw.edited.ts),
-      reactions: raw.reactions ?? [],
-      attachments: raw.attachments ?? [],
-      files: raw.files ?? [],
-      blocks,
-      isThreadReply: Boolean(raw.thread_ts && raw.thread_ts !== raw.ts),
-      replyCount: raw.reply_count ?? 0,
-      grouped,
+      index,
+      previous: result[result.length - 1],
+      directory,
+      overrides,
     });
+
+    if (raw.thread_ts && raw.thread_ts !== raw.ts) {
+      message.orphanReply = true;
+    }
+
+    const replies = repliesByRoot.get(raw.ts);
+    if (replies && replies.length > 0) {
+      const normalizedReplies: NormalizedMessage[] = [];
+      replies
+        .sort((a, b) => Number(a.ts) - Number(b.ts))
+        .forEach((reply, i) => {
+          normalizedReplies.push(
+            normalizeOne({
+              raw: reply,
+              index: i,
+              previous: normalizedReplies[normalizedReplies.length - 1],
+              directory,
+              overrides,
+            })
+          );
+        });
+
+      message.replies = normalizedReplies;
+      // `reply_count` can be stale in an export; trust what we actually have.
+      message.replyCount = normalizedReplies.length;
+      if (message.replyUsers.length === 0) {
+        message.replyUsers = Array.from(
+          new Set(normalizedReplies.map((r) => r.userId))
+        );
+      }
+      message.latestReply =
+        normalizedReplies[normalizedReplies.length - 1]?.date ??
+        message.latestReply;
+      // Thread content is searchable from the root message.
+      message.searchText += ` ${normalizedReplies
+        .map((r) => r.searchText)
+        .join(" ")}`;
+    }
+
+    result.push(message);
   });
+
+  // Slack always starts a fresh block after a message that carries a thread,
+  // so the reply bar is never orphaned above a headerless message.
+  for (let i = 1; i < result.length; i++) {
+    if (result[i - 1].replies.length > 0) result[i].grouped = false;
+  }
 
   return result;
 }
@@ -266,4 +405,16 @@ export function formatDay(date: Date): string {
 
 export function formatFull(date: Date): string {
   return fullFmt.format(date);
+}
+
+const shortFmt = new Intl.DateTimeFormat(LOCALE, {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+export function formatDayShort(date: Date): string {
+  return shortFmt.format(date);
 }

@@ -180,12 +180,21 @@ export interface ResolvedUser extends SlackUser {
   initials: string;
 }
 
+/** Accounts Slack always provides, whatever the directory contains. */
+const BUILTIN: UserDirectory = {
+  USLACKBOT: { id: "USLACKBOT", name: "Slackbot", isBot: true },
+};
+
+export function isBuiltinUser(id: string): boolean {
+  return id in BUILTIN;
+}
+
 export function resolveUser(
   id: string,
   directory: UserDirectory,
   fallbacks: Record<string, string> = {}
 ): ResolvedUser {
-  const hit = directory[id];
+  const hit = directory[id] ?? BUILTIN[id];
   const name = hit?.name ?? fallbacks[id] ?? id;
   return {
     id,
@@ -194,7 +203,7 @@ export function resolveUser(
     realName: hit?.realName,
     image: hit?.image,
     isBot: hit?.isBot,
-    known: Boolean(hit),
+    known: Boolean(hit) || Boolean(fallbacks[id]),
     color: avatarColor(id),
     initials: initials(name),
   };

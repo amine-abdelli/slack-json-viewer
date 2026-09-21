@@ -14,6 +14,7 @@ export interface MessageListProps {
   filtering?: boolean;
   isStatic?: boolean;
   className?: string;
+  onOpenThread?: (message: NormalizedMessage) => void;
 }
 
 export function MessageList({
@@ -25,6 +26,7 @@ export function MessageList({
   filtering = false,
   isStatic = false,
   className,
+  onOpenThread,
 }: MessageListProps) {
   const rows: React.ReactNode[] = [];
   let currentDay: string | null = null;
@@ -49,6 +51,7 @@ export function MessageList({
         highlight={highlight}
         showEmail={showEmail}
         isStatic={isStatic}
+        onOpenThread={onOpenThread}
       />
     );
   }

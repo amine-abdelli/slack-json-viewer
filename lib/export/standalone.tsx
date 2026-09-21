@@ -57,8 +57,9 @@ const RUNTIME = String.raw`
 (function () {
   var root = document.documentElement;
   var list = document.getElementById('slack-messages');
-  var msgs = Array.prototype.slice.call(list.querySelectorAll('[data-msg]'));
-  var days = Array.prototype.slice.call(list.querySelectorAll('[data-day-divider]'));
+  // Only the main flow: thread replies live inside their root message.
+  var msgs = Array.prototype.slice.call(list.querySelectorAll(':scope > [data-msg]'));
+  var days = Array.prototype.slice.call(list.querySelectorAll(':scope > [data-day-divider]'));
   var search = document.getElementById('x-search');
   var author = document.getElementById('x-author');
   var count = document.getElementById('x-count');
@@ -141,6 +142,50 @@ const RUNTIME = String.raw`
     clearBtn.hidden = !(q || who);
   }
 
+  /* --- thread panel ------------------------------------------------------ */
+
+  var panel = document.getElementById('x-thread');
+  var panelBody = document.getElementById('x-thread-body');
+  var panelClose = document.getElementById('x-thread-close');
+
+  function closeThread() {
+    panel.hidden = true;
+    panelBody.innerHTML = '';
+  }
+
+  function openThread(ts) {
+    var source = list.querySelector(':scope > [data-msg][data-ts="' + ts + '"]');
+    if (!source) return;
+    var clone = source.cloneNode(true);
+    clone.hidden = false;
+    clone.setAttribute('data-grouped', 'false');
+    var replies = clone.querySelector('[data-thread-replies]');
+    if (replies) replies.remove();
+
+    panelBody.innerHTML = '';
+    panelBody.appendChild(clone);
+
+    var count = replies ? replies.querySelectorAll('[data-msg]').length : 0;
+    var divider = document.createElement('div');
+    divider.className = 'slack-thread-divider';
+    divider.textContent = count + (count > 1 ? ' réponses' : ' réponse');
+    panelBody.appendChild(divider);
+
+    if (replies) {
+      replies.hidden = false;
+      panelBody.appendChild(replies);
+    }
+    panel.hidden = false;
+    panelBody.scrollTop = 0;
+  }
+
+  list.addEventListener('click', function (e) {
+    var bar = e.target.closest ? e.target.closest('[data-thread-open]') : null;
+    if (!bar) return;
+    openThread(bar.getAttribute('data-thread-open'));
+  });
+  panelClose.addEventListener('click', closeThread);
+
   search.addEventListener('input', apply);
   author.addEventListener('change', apply);
   clearBtn.addEventListener('click', function () {
@@ -161,7 +206,10 @@ const RUNTIME = String.raw`
   });
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); search.focus(); search.select(); }
-    if (e.key === 'Escape' && document.activeElement === search) { search.value = ''; apply(); }
+    if (e.key === 'Escape') {
+      if (!panel.hidden) { closeThread(); return; }
+      if (document.activeElement === search) { search.value = ''; apply(); }
+    }
   });
 
   apply();
@@ -258,9 +306,25 @@ export async function buildStandaloneHtml(options: ExportOptions): Promise<strin
 <body class="${options.showEmail ? "" : "slack-hide-emails"}">
 <div class="flex h-svh flex-col" style="background:var(--slack-bg);color:var(--slack-fg)">
 ${toolbar(options)}
-<main id="slack-scroll" class="slack-scroll flex-1 overflow-y-auto">
+<div class="flex min-h-0 flex-1">
+  <main id="slack-scroll" class="slack-scroll min-w-0 flex-1 overflow-y-auto">
 ${body}
-</main>
+  </main>
+  <aside id="x-thread" hidden class="no-print flex w-full max-w-[420px] shrink-0 flex-col border-l" style="border-color:var(--slack-border)">
+    <header class="flex h-[49px] shrink-0 items-center gap-2 border-b px-4" style="border-color:var(--slack-border)">
+      <div class="min-w-0">
+        <p class="text-[15px] font-black" style="color:var(--slack-fg)">Fil de discussion</p>
+        <p class="truncate text-[11px]" style="color:var(--slack-fg-muted)">${escapeHtml(
+          options.meta.displayName
+        )}</p>
+      </div>
+      <button id="x-thread-close" title="Fermer le fil (Échap)" class="ml-auto flex h-8 w-8 items-center justify-center rounded-md" style="color:var(--slack-fg)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div id="x-thread-body" class="slack-scroll slack-thread-panel min-h-0 flex-1 overflow-y-auto py-3"></div>
+  </aside>
+</div>
 </div>
 <script>${RUNTIME}</script>
 </body>
