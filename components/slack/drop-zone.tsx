@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { FileJson, Upload, Users } from "lucide-react";
+import Image from "next/image";
+import { Upload, Users } from "lucide-react";
 
 import { GithubLink, ReadmeLink } from "@/components/slack/github-link";
 import { Button } from "@/components/ui/button";
@@ -34,12 +35,14 @@ export function DropZone({
     <div className="flex min-h-svh items-center justify-center bg-background p-6">
       <div className="w-full max-w-xl">
         <div className="mb-8 text-center">
-          <div
-            className="mx-auto mb-4 flex size-12 items-center justify-center rounded-[10px]"
-            style={{ background: "var(--slack-aubergine)" }}
-          >
-            <FileJson className="size-6 text-white" />
-          </div>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={256}
+            height={256}
+            priority
+            className="mx-auto mb-4 size-12 rounded-[10px]"
+          />
           <h1 className="text-2xl font-black tracking-tight">Slack JSON Viewer</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Déposez un export de conversation Slack (.json) pour le relire avec
@@ -104,7 +107,7 @@ export function DropZone({
                   ? `${directorySize.toLocaleString("fr-FR")} membres chargés${
                       directoryName ? ` · ${directoryName}` : ""
                     }`
-                  : "Optionnel — users.txt / users.json pour résoudre les identifiants"}
+                  : "Optionnel — le fichier .txt produit par « slackdump list users »"}
               </p>
             </div>
           </div>

@@ -15,11 +15,15 @@ fichier JSON de la conversation :
 slackdump dump https://<workspace-name>.slack.com/archives/C0AE23W6W0J
 ```
 
-Pour récupérer la liste des utilisateurs :
+Pour récupérer la liste des utilisateurs — qui sert à remplacer les
+identifiants Slack (`U09MJ41Q0RJ`) par des noms lisibles :
 
 ```bash
 slackdump list users
 ```
+
+La commande écrit un fichier **texte** `users-<ID_DU_WORKSPACE>.txt`
+(par exemple `users-T4R6RCZFA.txt`), à charger tel quel dans le viewer.
 
 ## Fonctionnalités
 
@@ -67,12 +71,20 @@ Un tableau nu de messages est également accepté.
 
 ### Annuaire (optionnel)
 
-Le dump colonné des exports admin Slack :
+Un fichier **`.txt`** : la sortie colonnée de `slackdump list users`, colonnes
+alignées à l'espace, ligne d'en-tête comprise (elle est ignorée).
 
 ```
-Name                   ID                 Email
-martin_dupont           T09MJ41Q0ZX        alice.martin@gmail.com
+Name                   ID           Bot?  Email                          Deleted?  Restricted?
+alice_martin           U09MJ41Q0RJ        alice.martin@example.com
+bob.durand             UCR66AFS4          bob.durand@example.com
+bot_deploy             U03J6FZM55F        bot.deploy@rpa.example.com
 ```
+
+Seules deux colonnes comptent : l'**identifiant** (la cellule qui ressemble à
+`U…` / `W…` / `B…`) et l'**e-mail** (la cellule qui contient un `@`) ; le reste
+de la ligne fournit le nom affiché. Les colonnes vides (`Bot?`, `Deleted?`,
+`Restricted?`) et les lignes sans identifiant sont ignorées.
 
 Sont aussi reconnus : TSV, CSV, et le `users.json` d'un export Slack complet.
 
