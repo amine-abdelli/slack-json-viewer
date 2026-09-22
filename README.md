@@ -218,6 +218,10 @@ npm run dev     # http://localhost:3000
 npm run build
 ```
 
+How the pieces fit together — the viewer, the bridge, the `run` protocol,
+sessions and credentials, the QR helper — is described in
+[docs/architecture.md](docs/architecture.md).
+
 ## Deploying
 
 The viewer and the token sign-in need only network access, so any Next.js host

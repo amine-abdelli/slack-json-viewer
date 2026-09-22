@@ -89,6 +89,43 @@ function channelLabel(c: ChannelSummary): string {
   return c.id;
 }
 
+/** The list renders at most this many rows; the filter narrows the rest. */
+const MAX_VISIBLE_CHANNELS = 400;
+
+/**
+ * Turns what the user typed into a lower-cased needle.
+ *
+ * Accepts a name (`#general`, `general`), an ID (`C0123ABCD`, or part of one),
+ * or a pasted Slack link (`https://acme.slack.com/archives/C0123ABCD`).
+ */
+function channelQuery(raw: string): string {
+  let q = raw.trim();
+  const link = q.match(/\/archives\/([A-Za-z0-9]+)/);
+  if (link) q = link[1];
+  return q.replace(/^[#@]/, "").toLowerCase();
+}
+
+/** 0 = exact ID, 1 = name starts with the query, 2 = contains it, -1 = no match. */
+function channelRank(c: ChannelSummary, q: string): number {
+  const id = c.id.toLowerCase();
+  const label = channelLabel(c).toLowerCase();
+  if (id === q) return 0;
+  if (label.startsWith(q)) return 1;
+  if (label.includes(q) || id.includes(q) || (c.user?.toLowerCase().includes(q) ?? false)) {
+    return 2;
+  }
+  return -1;
+}
+
+/** An inline sample of what the channel filter accepts. */
+function FilterExample({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="rounded border bg-muted/60 px-1 py-px font-mono text-[11px] text-foreground/80">
+      {children}
+    </code>
+  );
+}
+
 function ChannelIcon({ channel }: { channel: ChannelSummary }) {
   const className = "size-4 shrink-0 text-muted-foreground";
   if (channel.isIM) return <MessageSquare className={className} />;
@@ -106,7 +143,11 @@ export function ConnectPanel({
 }: ConnectPanelProps) {
   const [step, setStep] = React.useState<Step>("auth");
   const [workspace, setWorkspace] = React.useState("");
-  const [authMode, setAuthMode] = React.useState<AuthMode>("qr");
+  const [authMode, setAuthMode] = React.useState<AuthMode>("token");
+  // The QR login needs a helper binary and a browser, which a plain host (e.g.
+  // Vercel) does not have: offer it only where it can actually run.
+  const qrAvailable = status.qrauth.ready || status.qrauth.buildable;
+  const activeMode: AuthMode = qrAvailable ? authMode : "token";
   const [qrImage, setQrImage] = React.useState("");
   const [token, setToken] = React.useState("");
   const [cookie, setCookie] = React.useState("");
@@ -204,7 +245,7 @@ export function ConnectPanel({
       return;
     }
     let job: RunRequest;
-    if (authMode === "qr") {
+    if (activeMode === "qr") {
       if (!qrImage.trim()) {
         setError({ message: "Collez l'image du QR code." });
         return;
@@ -236,7 +277,7 @@ export function ConnectPanel({
     await loadChannels(res.workspace, memberOnly);
   }, [
     workspace,
-    authMode,
+    activeMode,
     qrImage,
     token,
     cookie,
@@ -313,15 +354,20 @@ export function ConnectPanel({
     reader.readAsDataURL(blob);
   }, []);
 
-  const visibleChannels = React.useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    return channels
-      .filter((c) => !q || channelLabel(c).toLowerCase().includes(q) || c.id.toLowerCase() === q)
+  const { visibleChannels, matchCount } = React.useMemo(() => {
+    const q = channelQuery(filter);
+    const ranked = channels
+      .map((c) => ({ c, rank: q ? channelRank(c, q) : 2 }))
+      .filter(({ rank }) => rank >= 0)
       .sort((a, b) => {
-        if (a.isArchived !== b.isArchived) return a.isArchived ? 1 : -1;
-        return channelLabel(a).localeCompare(channelLabel(b), "fr");
-      })
-      .slice(0, 400);
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        if (a.c.isArchived !== b.c.isArchived) return a.c.isArchived ? 1 : -1;
+        return channelLabel(a.c).localeCompare(channelLabel(b.c), "fr");
+      });
+    return {
+      visibleChannels: ranked.slice(0, MAX_VISIBLE_CHANNELS).map(({ c }) => c),
+      matchCount: ranked.length,
+    };
   }, [channels, filter]);
 
   const lastLog = logs[logs.length - 1];
@@ -401,11 +447,12 @@ export function ConnectPanel({
                 </p>
               </div>
 
+              {qrAvailable ? (
               <div className="flex gap-1 rounded-md bg-muted p-1">
                 {(
                   [
-                    ["qr", "QR code"],
                     ["token", "Jeton + cookie"],
+                    ["qr", "QR code"],
                   ] as const
                 ).map(([mode, label]) => (
                   <button
@@ -415,7 +462,7 @@ export function ConnectPanel({
                     onClick={() => setAuthMode(mode)}
                     className={cn(
                       "flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-60",
-                      authMode === mode
+                      activeMode === mode
                         ? "bg-background shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
                     )}
@@ -424,8 +471,9 @@ export function ConnectPanel({
                   </button>
                 ))}
               </div>
+              ) : null}
 
-              {authMode === "token" ? (
+              {activeMode === "token" ? (
                 <div className="space-y-2">
                   <label className="text-sm font-medium" htmlFor="sd-token">
                     Jeton et cookie
@@ -497,12 +545,37 @@ export function ConnectPanel({
                 <Input
                   autoFocus
                   className="pl-8"
-                  placeholder="Filtrer les canaux…"
+                  placeholder="Rechercher un canal…"
+                  aria-label="Filtrer les canaux par nom ou par ID"
+                  aria-describedby="channel-filter-hint"
                   value={filter}
                   disabled={Boolean(busy)}
                   onChange={(e) => setFilter(e.target.value)}
                 />
               </div>
+              {/* One line under the field: how to filter while it is empty, what matched once it is not. */}
+              <p
+                id="channel-filter-hint"
+                aria-live="polite"
+                className="min-h-5 px-0.5 text-xs leading-5 text-muted-foreground"
+              >
+                {filter.trim() ? (
+                  <>
+                    <span className="font-medium text-foreground">
+                      {matchCount.toLocaleString("fr-FR")}
+                    </span>{" "}
+                    sur {channels.length.toLocaleString("fr-FR")} canaux
+                  </>
+                ) : (
+                  <>
+                    Par nom <FilterExample>#general</FilterExample> ou par ID{" "}
+                    <FilterExample>C0123ABCD</FilterExample> — un lien Slack marche aussi.
+                  </>
+                )}
+                {matchCount > MAX_VISIBLE_CHANNELS
+                  ? ` · ${MAX_VISIBLE_CHANNELS} premiers affichés, affinez la recherche`
+                  : ""}
+              </p>
 
               <div className="max-h-[38svh] overflow-y-auto rounded-md border">
                 {visibleChannels.length === 0 ? (
@@ -525,6 +598,9 @@ export function ConnectPanel({
                     >
                       <ChannelIcon channel={c} />
                       <span className="min-w-0 flex-1 truncate">{channelLabel(c)}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                        {c.id}
+                      </span>
                       {c.isArchived ? (
                         <span className="shrink-0 text-xs text-muted-foreground">archivé</span>
                       ) : c.memberCount > 0 ? (
