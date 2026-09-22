@@ -4,9 +4,9 @@ import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const GITHUB_URL = "https://github.com/amine-abdelli";
-/** Section « Préparer les sources » du README (slackdump). */
+/** Section « Preparing the sources » du README (slackdump). */
 const README_URL =
-  "https://github.com/amine-abdelli/slack-json-viewer#pr%C3%A9parer-les-sources";
+  "https://github.com/amine-abdelli/slack-json-viewer#preparing-the-sources";
 
 /** GitHub mark — lucide ne fournit plus les logos de marque. */
 function GithubMark({ className }: { className?: string }) {

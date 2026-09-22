@@ -1,51 +1,52 @@
 # Slack JSON Viewer
 
-Relit un export JSON de conversation Slack avec l'interface d'origine, puis
-l'exporte en **page HTML autonome** qu'on ouvre d'un double-clic, hors ligne.
+Reads a Slack conversation JSON export back in Slack's own interface, then
+exports it as a **self-contained HTML page** you open with a double-click,
+offline.
 
-Tout se passe dans le navigateur : aucun fichier n'est envoyé à un serveur,
-aucune API route, aucune base de données.
+Everything happens in the browser: no file is ever sent to a server, no API
+route, no database.
 
-## Préparer les sources
+## Preparing the sources
 
-Extraire les sources avec `slackdump`, puis dézipper l'archive pour récupérer le
-fichier JSON de la conversation :
+Extract the sources with `slackdump`, then unzip the archive to get the
+conversation's JSON file:
 
 ```bash
 slackdump dump https://<workspace-name>.slack.com/archives/C0AE23W6W0J
 ```
 
-Pour récupérer la liste des utilisateurs — qui sert à remplacer les
-identifiants Slack (`U09MJ41Q0RJ`) par des noms lisibles :
+To get the user list — which is what turns Slack IDs (`U09MJ41Q0RJ`) into
+readable names:
 
 ```bash
 slackdump list users
 ```
 
-La commande écrit un fichier **texte** `users-<ID_DU_WORKSPACE>.txt`
-(par exemple `users-T4R6RCZFA.txt`), à charger tel quel dans le viewer.
+The command writes a **text** file `users-<WORKSPACE_ID>.txt` (for example
+`users-T4R6RCZFA.txt`); load it into the viewer as is.
 
-## Fonctionnalités
+## Features
 
-- **Chargement** par glisser-déposer ou via l'explorateur de fichiers.
-- **Design system Slack** : barre latérale aubergine, groupage des messages par
-  auteur (fenêtre de 5 minutes), séparateurs de jour, réactions, aperçus de
-  liens, fichiers joints, mentions, listes, citations, blocs de code, `(modifié)`.
-- **Rendu complet des blocs `rich_text`** (sections, listes, quotes,
-  preformatted, liens, mentions `@user` / `#channel` / `@here`, emojis) avec
-  repli sur le `mrkdwn` quand le message n'a pas de blocs.
-- **Annuaire utilisateurs** : mappe les identifiants Slack (`U09MJ41Q0RJ`) vers
-  un nom et un e-mail. Les identifiants introuvables sont signalés et peuvent
-  être nommés à la main (proposition automatique à partir du nom de canal
-  `mpdm-…`). L'annuaire et les noms manuels sont mémorisés dans le navigateur.
-- **Recherche** plein texte avec surlignage + **filtre par auteur**.
-- **Thème clair / sombre** (palettes Slack).
-- **Export HTML autonome** : un seul fichier, CSS et JS inclus, qui conserve la
-  recherche, le filtre par auteur, le thème et une mise en page imprimable.
+- **Loading** by drag and drop or through the file picker.
+- **Slack design system**: aubergine sidebar, messages grouped by author
+  (5-minute window), day separators, reactions, link previews, file
+  attachments, mentions, lists, quotes, code blocks, `(edited)`.
+- **Full `rich_text` block rendering** (sections, lists, quotes, preformatted,
+  links, `@user` / `#channel` / `@here` mentions, emoji), falling back to
+  `mrkdwn` when a message has no blocks.
+- **User directory**: maps Slack IDs (`U09MJ41Q0RJ`) to a name and an email.
+  Unresolved IDs are flagged and can be named by hand (with a suggestion
+  derived from the `mpdm-…` channel name). The directory and the manual names
+  are remembered in the browser.
+- **Full-text search** with highlighting, plus an **author filter**.
+- **Light / dark theme** (Slack palettes).
+- **Self-contained HTML export**: a single file, CSS and JS included, that
+  keeps search, the author filter, the theme, and a printable layout.
 
-## Formats acceptés
+## Accepted formats
 
-### Conversation (obligatoire)
+### Conversation (required)
 
 ```jsonc
 {
@@ -60,19 +61,19 @@ La commande écrit un fichier **texte** `users-<ID_DU_WORKSPACE>.txt`
       "ts": "1770708541.969069",
       "blocks": [/* rich_text */],
       "reactions": [{ "name": "+1", "count": 1, "users": ["UCR66AFS4"] }],
-      "attachments": [/* aperçus de liens */],
+      "attachments": [/* link previews */],
       "edited": { "user": "…", "ts": "…" }
     }
   ]
 }
 ```
 
-Un tableau nu de messages est également accepté.
+A bare array of messages is accepted too.
 
-### Annuaire (optionnel)
+### Directory (optional)
 
-Un fichier **`.txt`** : la sortie colonnée de `slackdump list users`, colonnes
-alignées à l'espace, ligne d'en-tête comprise (elle est ignorée).
+A **`.txt`** file: the column output of `slackdump list users`, columns aligned
+with spaces, header row included (it is ignored).
 
 ```
 Name                   ID           Bot?  Email                          Deleted?  Restricted?
@@ -81,14 +82,14 @@ bob.durand             UCR66AFS4          bob.durand@example.com
 bot_deploy             U03J6FZM55F        bot.deploy@rpa.example.com
 ```
 
-Seules deux colonnes comptent : l'**identifiant** (la cellule qui ressemble à
-`U…` / `W…` / `B…`) et l'**e-mail** (la cellule qui contient un `@`) ; le reste
-de la ligne fournit le nom affiché. Les colonnes vides (`Bot?`, `Deleted?`,
-`Restricted?`) et les lignes sans identifiant sont ignorées.
+Only two columns matter: the **ID** (the cell that looks like `U…` / `W…` /
+`B…`) and the **email** (the cell containing an `@`); the rest of the row
+supplies the display name. Empty columns (`Bot?`, `Deleted?`, `Restricted?`)
+and rows without an ID are ignored.
 
-Sont aussi reconnus : TSV, CSV, et le `users.json` d'un export Slack complet.
+Also recognized: TSV, CSV, and the `users.json` of a full Slack export.
 
-## Développement
+## Development
 
 ```bash
 npm install
@@ -96,10 +97,10 @@ npm run dev     # http://localhost:3000
 npm run build
 ```
 
-## Déploiement sur Vercel
+## Deploying on Vercel
 
-Le projet est un Next.js 16 (App Router) entièrement statique, donc aucune
-configuration n'est nécessaire.
+The project is a fully static Next.js 16 app (App Router), so no configuration
+is needed.
 
 ```bash
 npm i -g vercel
@@ -107,14 +108,13 @@ vercel          # preview
 vercel --prod   # production
 ```
 
-Ou via l'interface : *New Project* → importer le dépôt Git → Vercel détecte
-Next.js et déploie sans réglage supplémentaire.
+Or through the web UI: *New Project* → import the Git repository → Vercel
+detects Next.js and deploys with no extra setup.
 
 ## Stack
 
 - Next.js 16 (App Router, Turbopack), React 19
 - Tailwind CSS v4 + shadcn/ui (Radix), lucide-react
-- `react-dom/server.browser` pour l'export : la page téléchargée est rendue par
-  **les mêmes composants** que l'application, avec la feuille de style de
-  l'application inlinée — le fichier exporté est donc au pixel près identique.
-# slack-json-viewer
+- `react-dom/server.browser` for the export: the downloaded page is rendered by
+  **the same components** as the app, with the app's stylesheet inlined — so the
+  exported file is pixel-for-pixel identical.
