@@ -150,9 +150,19 @@ the viewer as is. The user directory is not included: it lives in
 ### Navigation
 
 The back arrow at the left of the header goes back where the conversation came
-from: to the channel list when the bridge is available — the panel stays
-mounted in `viewer.tsx`, so the list is still loaded — and to the home screen
-otherwise.
+from: to the channel list when the bridge is available, and to the home screen
+otherwise. The browser's own back button does the same: while a conversation is
+on screen, one history entry is pushed, and popping it runs the same code; the
+arrow pops that entry too, so the two never disagree.
+
+Landing back on the list, rather than on the sign-in step, relies on the panel
+never remounting. `viewer.tsx` renders `ConnectPanel` **first, in both
+branches** — home screen and conversation — so React keeps the same instance,
+with its step, its channels and its filter. Rendering it at a different place in
+each branch silently resets it. Because the dialog now reopens without
+remounting, its content sits one z-index above its overlay
+(`components/ui/dialog.tsx`): Radix portals the two separately, and the overlay
+can otherwise end up covering the content.
 
 ## The bridge
 

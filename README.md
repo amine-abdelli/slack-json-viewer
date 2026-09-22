@@ -40,9 +40,14 @@ invisible by design. In a signed-in Slack client: click the **workspace name**
 URL**, then paste. The link expires within a minute and is single-use, so copy
 a fresh one per attempt.
 
-This tab only appears where the helper is available — it is the one part that
-needs a browser, and therefore the container image. See
-[The QR helper](#the-qr-helper).
+This tab only appears where the helper is available, or can be built because
+Go is installed — it is the one part that needs a browser, and therefore the
+container image. See [The QR helper](#the-qr-helper).
+
+Once signed in, the workspace appears at the top of the panel under
+**Déjà connecté**: one click on its card goes straight to its channels. The
+sign-in form is then folded away behind **Connecter un autre espace de
+travail**, so it only shows up when you actually want a second workspace.
 
 ### What it fetches
 
@@ -54,6 +59,12 @@ needs a browser, and therefore the container image. See
 
 The channel list defaults to **the conversations you are a member of**; untick
 the box to browse everything visible, which is slow by nature.
+
+The search field above it filters by **name** (`general`, `#general`) or by
+**ID** (`C0AE23W6W0J`, or any part of it), and also accepts a pasted Slack link
+(`https://acme.slack.com/archives/C0AE23W6W0J`). Each row shows its ID, exact ID
+matches come first, then names that start with the query. A counter shows how
+many channels match; the list renders the first 400.
 
 Names are resolved *after* the dump: the panel collects the IDs actually
 present — message authors, thread repliers, reaction voters, `<@…>` mentions,
@@ -68,9 +79,10 @@ error rather than loaded as a blank page: on Enterprise Grid a token is tied to
 one workspace, so a conversation listed by `users.conversations` is not always
 one `conversations.history` will serve.
 
-Once a conversation is open, the back arrow at the left of the header returns
-to the channel list — the panel stays mounted, so the list is still loaded.
-Without the bridge it closes the conversation and returns to the home screen.
+Once a conversation is open, the back arrow at the left of the header — or the
+browser's own back button — returns to the channel list as you left it, filter
+included; nothing is fetched again. Without the bridge, both close the
+conversation and return to the home screen.
 
 ### Credentials
 
@@ -131,7 +143,7 @@ hangs indefinitely when either does not happen. While it waits, the helper
 reports the page the browser is actually on, and on failure writes a screenshot
 of it.
 
-`slackauth` always launches a *headful* browser, so the container runs an
+The helper launches a *headful* browser by default, so the container runs an
 `Xvfb` display; the app user also gets a writable `$HOME`, which Chromium needs
 for its crashpad and XDG directories. Outside Docker on a headless Linux box,
 run it under `xvfb-run`, or set `QRAUTH_HEADLESS=1`. On macOS a window opens
@@ -146,7 +158,8 @@ npm run build:qrauth
 
 ## Features
 
-- **Loading** by drag and drop or through the file picker.
+- **Loading** by drag and drop, through the file picker, or straight from
+  Slack (see [Connecting to Slack](#connecting-to-slack)).
 - **Slack design system**: aubergine sidebar, messages grouped by author
   (5-minute window), day separators, reactions, link previews, file
   attachments, mentions, lists, quotes, code blocks, `(edited)`.
@@ -157,7 +170,10 @@ npm run build:qrauth
   Unresolved IDs are flagged and can be named by hand (with a suggestion
   derived from the `mpdm-…` channel name). The directory and the manual names
   are remembered in the browser.
-- **Full-text search** with highlighting, plus an **author filter**.
+- **Threads**: a reply bar under each thread root, opening the replies in a
+  side panel, as in Slack.
+- **Full-text search** with highlighting, plus an **author filter**. A thread
+  is found by any of its messages.
 - **Light / dark theme** (Slack palettes).
 - **Export**, from the header menu, either way:
   - **a self-contained HTML page** — a single file, CSS and JS included, that

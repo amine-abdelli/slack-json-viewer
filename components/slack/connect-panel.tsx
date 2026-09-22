@@ -3,12 +3,13 @@
 import * as React from "react";
 import {
   ArrowLeft,
-  Check,
+  ArrowRight,
   Hash,
   Loader2,
   Lock,
   LogOut,
   MessageSquare,
+  Plus,
   Search,
   Users,
 } from "lucide-react";
@@ -143,6 +144,10 @@ export function ConnectPanel({
 }: ConnectPanelProps) {
   const [step, setStep] = React.useState<Step>("auth");
   const [workspace, setWorkspace] = React.useState("");
+  /** Already signed in somewhere: the sign-in form stays folded until asked for. */
+  const [addingWorkspace, setAddingWorkspace] = React.useState(false);
+  const connected = status.workspaces.length > 0;
+  const showSignInForm = !connected || addingWorkspace;
   const [authMode, setAuthMode] = React.useState<AuthMode>("token");
   // The QR login needs a helper binary and a browser, which a plain host (e.g.
   // Vercel) does not have: offer it only where it can actually run.
@@ -271,6 +276,7 @@ export function ConnectPanel({
     setQrImage("");
     setToken("");
     setCookie("");
+    setAddingWorkspace(false);
     setWorkspace(res.workspace);
     const next = await fetchStatus();
     if (next) onStatusChange(next);
@@ -401,26 +407,48 @@ export function ConnectPanel({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {step === "auth" ? (
             <div className="space-y-5">
-              {status.workspaces.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {connected ? (
+                <section className="space-y-2" aria-labelledby="sd-connected">
+                  <p
+                    id="sd-connected"
+                    className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--slack-green)]"
+                  >
+                    <span className="size-2 rounded-full bg-[var(--slack-green)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--slack-green)_25%,transparent)]" />
                     Déjà connecté
                   </p>
                   {status.workspaces.map((wsp) => (
-                    <div key={wsp} className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1 justify-start"
+                    <div
+                      key={wsp}
+                      className="group flex items-center gap-1 rounded-lg border border-[var(--slack-green)]/40 bg-[var(--slack-green)]/[0.07] p-1 transition-colors hover:border-[var(--slack-green)]/70 hover:bg-[var(--slack-green)]/[0.12]"
+                    >
+                      <button
+                        type="button"
                         disabled={Boolean(busy)}
                         onClick={() => void handleUseWorkspace(wsp)}
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1.5 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
                       >
-                        <Check className="size-4 text-[var(--slack-green)]" />
-                        {wsp}
-                      </Button>
+                        <span
+                          aria-hidden
+                          className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[var(--slack-aubergine)] text-sm font-bold uppercase text-white"
+                        >
+                          {wsp.charAt(0)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold">{wsp}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {wsp}.slack.com
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--slack-green)]">
+                          Voir les canaux
+                          <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                      </button>
                       <Button
                         variant="ghost"
                         size="icon"
                         title="Oublier cet espace de travail"
+                        aria-label={`Oublier ${wsp}`}
                         disabled={Boolean(busy)}
                         onClick={() => void handleForget(wsp)}
                       >
@@ -428,6 +456,36 @@ export function ConnectPanel({
                       </Button>
                     </div>
                   ))}
+                </section>
+              ) : null}
+
+              {!showSignInForm ? (
+                <button
+                  type="button"
+                  disabled={Boolean(busy)}
+                  onClick={() => {
+                    setWorkspace("");
+                    setAddingWorkspace(true);
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-60"
+                >
+                  <Plus className="size-4" />
+                  Connecter un autre espace de travail
+                </button>
+              ) : (
+              <>
+              {connected ? (
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  Nouvel espace de travail
+                  <button
+                    type="button"
+                    onClick={() => setAddingWorkspace(false)}
+                    className="rounded px-1 underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    Masquer
+                  </button>
+                  <span className="h-px flex-1 bg-border" />
                 </div>
               ) : null}
 
@@ -536,6 +594,8 @@ export function ConnectPanel({
                   </p>
                 ) : null}
               </div>
+              )}
+              </>
               )}
             </div>
           ) : (
@@ -666,21 +726,24 @@ export function ConnectPanel({
           ) : null}
         </div>
 
-        <DialogFooter className="border-t px-6 py-4">
-          {busy ? (
-            <Button variant="outline" onClick={() => abortRef.current?.abort()}>
-              Annuler
-            </Button>
-          ) : step === "auth" ? (
-            <Button variant="slack" onClick={() => void handleAuth()}>
-              Se connecter
-            </Button>
-          ) : (
-            <Button variant="slack" disabled={!selected} onClick={() => void handleOpenChannel()}>
-              Ouvrir la conversation
-            </Button>
-          )}
-        </DialogFooter>
+        {/* Nothing to confirm while the sign-in form is folded away. */}
+        {busy || step !== "auth" || showSignInForm ? (
+          <DialogFooter className="border-t px-6 py-4">
+            {busy ? (
+              <Button variant="outline" onClick={() => abortRef.current?.abort()}>
+                Annuler
+              </Button>
+            ) : step === "auth" ? (
+              <Button variant="slack" onClick={() => void handleAuth()}>
+                Se connecter
+              </Button>
+            ) : (
+              <Button variant="slack" disabled={!selected} onClick={() => void handleOpenChannel()}>
+                Ouvrir la conversation
+              </Button>
+            )}
+          </DialogFooter>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
