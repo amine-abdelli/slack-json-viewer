@@ -29,7 +29,10 @@ import {
   fetchStatus,
   logoutWorkspace,
   runJob,
+  sendQrInput,
+  type LiveEvent,
 } from "@/lib/slack/bridge-client";
+import { QrLiveView } from "@/components/slack/qr-live-view";
 import type {
   BridgeStatus,
   ChannelSummary,
@@ -154,6 +157,8 @@ export function ConnectPanel({
   // dozen. Default to those.
   const [memberOnly, setMemberOnly] = React.useState(true);
   const [busy, setBusy] = React.useState<string | null>(null);
+  /** The QR sign-in's server-side browser, while it runs: its id and latest frame. */
+  const [live, setLive] = React.useState<{ id: string; frame: string | null } | null>(null);
   const [logs, setLogs] = React.useState<string[]>([]);
   const [error, setError] = React.useState<{ message: string; detail?: string } | null>(null);
 
@@ -259,9 +264,16 @@ export function ConnectPanel({
       };
     }
 
+    const onLive = (event: LiveEvent) =>
+      setLive((prev) =>
+        event.t === "live"
+          ? { id: event.id, frame: null }
+          : prev && { ...prev, frame: `data:image/jpeg;base64,${event.data}` },
+      );
     const res = await withBusy(m.connect.busySignIn, (signal) =>
-      runJob<{ workspace: string }>(job, pushLog, signal),
+      runJob<{ workspace: string }>(job, pushLog, signal, onLive),
     );
+    setLive(null);
     if (!res) return;
     setQrImage("");
     setToken("");
@@ -371,7 +383,17 @@ export function ConnectPanel({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[90svh] gap-0 overflow-hidden p-0 sm:max-w-xl">
+      <DialogContent
+        className={cn(
+          "max-h-[90svh] gap-0 overflow-hidden p-0 sm:max-w-xl",
+          // Room for the sign-in browser's picture to be readable.
+          live && "sm:max-w-3xl",
+        )}
+        // Escape belongs to the page being driven in the live view, not to the dialog.
+        onEscapeKeyDown={(event) => {
+          if (live) event.preventDefault();
+        }}
+      >
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle className="flex items-center gap-2">
             {step === "channels" ? (
@@ -394,7 +416,12 @@ export function ConnectPanel({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          {step === "auth" ? (
+          {live ? (
+            <QrLiveView
+              frame={live.frame}
+              onInput={(input) => sendQrInput(live.id, input)}
+            />
+          ) : step === "auth" ? (
             <div className="space-y-5">
               {connected ? (
                 <section className="space-y-2" aria-labelledby="sd-connected">
@@ -688,7 +715,10 @@ export function ConnectPanel({
                 {busy}
               </p>
               {lastLog ? (
-                <p className="mt-1 truncate font-mono text-xs text-muted-foreground" title={lastLog}>
+                <p
+                  className="mt-1 line-clamp-2 break-all font-mono text-xs text-muted-foreground"
+                  title={lastLog}
+                >
                   {lastLog}
                 </p>
               ) : null}

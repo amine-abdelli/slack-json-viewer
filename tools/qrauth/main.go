@@ -26,6 +26,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -42,6 +43,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/caiguanhao/readqr"
@@ -79,19 +81,31 @@ func main() {
 	var (
 		workspace = flag.String("workspace", "", "Slack workspace name (the subdomain, e.g. \"acme\")")
 		qrFile    = flag.String("qr", "-", "file holding the QR code image data URL, or \"-\" for stdin")
-		timeout   = flag.Duration("timeout", 2*time.Minute, "overall timeout for the login flow")
+		// Long enough to get through an identity provider by hand in the live view.
+		timeout = flag.Duration("timeout", 5*time.Minute, "overall timeout for the login flow")
 		debugDir  = flag.String("debug-dir", os.TempDir(), "where to write a screenshot if the login fails; empty to disable")
 	)
 	flag.Parse()
 
 	if err := run(*workspace, *qrFile, *timeout, *debugDir); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		emit("error: " + err.Error())
 		os.Exit(1)
 	}
 }
 
+// stderr carries both progress lines and live-view frames from several
+// goroutines; a frame is far larger than an atomic pipe write, so every line
+// goes out whole, under this lock.
+var stderrMu sync.Mutex
+
+func emit(line string) {
+	stderrMu.Lock()
+	defer stderrMu.Unlock()
+	fmt.Fprintln(os.Stderr, line)
+}
+
 func logf(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	emit(fmt.Sprintf(format, args...))
 }
 
 func run(rawWorkspace, qrFile string, timeout time.Duration, debugDir string) error {
@@ -100,8 +114,15 @@ func run(rawWorkspace, qrFile string, timeout time.Duration, debugDir string) er
 		return errors.New("workspace is required")
 	}
 	base := "https://" + workspace + ".slack.com"
+	// Tests only: point the whole flow at a local stand-in for Slack.
+	testBase := strings.TrimRight(os.Getenv("QRAUTH_BASE_URL"), "/")
+	if testBase != "" {
+		base = testBase
+	}
 
-	loginURL, err := readLoginURL(qrFile)
+	// stdin: the QR code's data URL on the first line, then live-view inputs.
+	in := bufio.NewReaderSize(os.Stdin, 64<<10)
+	loginURL, err := readLoginURL(qrFile, in, testBase != "")
 	if err != nil {
 		return err
 	}
@@ -133,6 +154,17 @@ func run(rawWorkspace, qrFile string, timeout time.Duration, debugDir string) er
 	if err != nil {
 		return fmt.Errorf("opening a tab: %w", err)
 	}
+	if err := setViewport(page); err != nil {
+		return fmt.Errorf("sizing the tab: %w", err)
+	}
+
+	// From here on the page is shown to the person signing in, who can act on
+	// it — an identity provider asking for a password, say.
+	live := newLiveView(page)
+	liveCtx, stopLive := context.WithCancel(ctx)
+	defer stopLive()
+	go live.streamFrames(liveCtx)
+	go live.readCommands(liveCtx, in)
 
 	logf("opening the sign-in link from the QR code")
 	if err := page.Navigate(loginURL); err != nil {
@@ -140,6 +172,7 @@ func run(rawWorkspace, qrFile string, timeout time.Duration, debugDir string) er
 	}
 
 	cookie, err := waitForSessionCookie(ctx, browser, page)
+	stopLive()
 	if err != nil {
 		dumpDiagnostics(page, debugDir)
 		return err
@@ -164,13 +197,19 @@ func run(rawWorkspace, qrFile string, timeout time.Duration, debugDir string) er
 
 // readLoginURL reads the pasted data URL and decodes the sign-in link out of
 // the QR code it contains.
-func readLoginURL(name string) (string, error) {
+func readLoginURL(name string, in *bufio.Reader, allowHTTP bool) (string, error) {
 	var (
 		raw []byte
 		err error
 	)
 	if name == "-" || name == "" {
-		raw, err = io.ReadAll(io.LimitReader(os.Stdin, 8<<20))
+		// One line: the rest of stdin is the live view's.
+		var line string
+		line, err = in.ReadString('\n')
+		if err == io.EOF && line != "" {
+			err = nil
+		}
+		raw = []byte(line)
 	} else {
 		raw, err = os.ReadFile(name)
 	}
@@ -196,7 +235,7 @@ func readLoginURL(name string) (string, error) {
 		return "", fmt.Errorf(
 			"no QR code found in that image — copy the QR code itself, not the page around it (%w)", err)
 	}
-	if !strings.HasPrefix(link, "https://") {
+	if !strings.HasPrefix(link, "https://") && !(allowHTTP && strings.HasPrefix(link, "http://")) {
 		return "", fmt.Errorf("the QR code does not contain a sign-in link (got %q)", truncate(link, 80))
 	}
 	return link, nil
@@ -211,7 +250,8 @@ func startBrowser(ctx context.Context) (*rod.Browser, func(), error) {
 	// automated browsers. QRAUTH_HEADLESS=1 is an escape hatch for a machine
 	// where no display can be arranged.
 	headless := os.Getenv("QRAUTH_HEADLESS") == "1"
-	l := launcher.New().Headless(headless).Leakless(true).Devtools(false)
+	l := launcher.New().Headless(headless).Leakless(true).Devtools(false).
+		Set("window-size", fmt.Sprintf("%d,%d", viewportWidth, viewportHeight+100))
 	if bin := os.Getenv("CHROME_BIN"); bin != "" {
 		l = l.Bin(bin)
 	}

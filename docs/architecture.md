@@ -381,11 +381,11 @@ not a Web API call: consuming a *Sign in on mobile* link needs a real browser.
    is the credential, never is.
 2. Check that `https://<workspace>.slack.com` is reachable, so a network problem
    fails fast instead of timing out.
-3. Launch Chromium through [rod](https://github.com/go-rod/rod), open the link,
-   and poll the browser's cookies every 500 ms until a `d=xoxd-…` cookie
-   appears. Slack's *open in the app* interstitial is dismissed if it shows, but
-   nothing waits on it. The page the browser is on is logged every five
-   seconds.
+3. Launch Chromium through [rod](https://github.com/go-rod/rod) with a fixed
+   1280×800 page, open the link, and poll the browser's cookies every 500 ms
+   until a `d=xoxd-…` cookie appears. Slack's *open in the app* interstitial is
+   dismissed if it shows, but nothing waits on it. The page the browser is on
+   is logged every five seconds.
 4. Close the browser and read the client token from `/ssb/redirect` with that
    cookie, over plain HTTP.
 5. Print `{ token, cookie, workspace }` on stdout. On failure, log the last page
@@ -393,6 +393,27 @@ not a Web API call: consuming a *Sign in on mobile* link needs a real browser.
 
 `slack.ts` runs the helper with the QR data on stdin — never in `argv` — at most
 `SLACK_VIEWER_MAX_LOGINS` (2) at a time, each login costing a Chromium.
+
+### The live view
+
+On a workspace behind SSO the QR link does not sign in by itself: Slack hands
+over to the company's identity provider, which wants a person. That page is in
+a browser nobody can see, so the helper shows it and lets the person drive it
+from the connection panel (`tools/qrauth/live.go`,
+`components/slack/qr-live-view.tsx`):
+
+- **Frames.** While it waits, the helper takes a JPEG screenshot every 400 ms
+  and writes it to stderr as an `@@frame <base64>` line when it differs from
+  the last one. `run()` in `slack.ts` routes those lines to the `run` stream
+  as `{ "t": "frame" }` events instead of logging them.
+- **Inputs.** stdin stays open after the QR data. The panel turns clicks
+  (scaled to the 1280×800 page), keystrokes, pasted text and the wheel into
+  `QrInput`s and posts them, one after another, to `/api/slack/qr-input` with
+  the id announced by a `{ "t": "live" }` event. `sendQrInput` checks the
+  input and that the sign-in belongs to the caller's session, then writes it
+  to the helper as one JSON line. Inputs are never logged — they may be a
+  password.
+- **Timeout.** Five minutes, to leave time for an identity provider.
 
 The browser runs headful by default (`QRAUTH_HEADLESS=1` switches it), so the
 container image runs a virtual display: `docker/entrypoint.sh` starts one

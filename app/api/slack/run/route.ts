@@ -85,7 +85,16 @@ async function handle(request: Request) {
         let data: unknown;
         switch (job.action) {
           case "auth-qr":
-            data = await authenticateWithQr(session.id, job.workspace, job.qrImage, onLog, signal);
+            data = await authenticateWithQr(
+              session.id,
+              job.workspace,
+              job.qrImage,
+              onLog,
+              signal,
+              // The live view: frames of the server-side browser, and the id
+              // the panel sends its clicks and keystrokes back with.
+              (event) => send(event),
+            );
             break;
           case "auth-token":
             data = await authenticateWithToken(

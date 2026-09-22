@@ -41,8 +41,40 @@ export type RunRequest =
   | { action: "resolve-users"; workspace: string; userIds: string[] }
   | { action: "dump"; workspace: string; channel: string };
 
+/**
+ * An input for the QR sign-in's live view — what the person does on the
+ * picture of the server-side browser.
+ */
+export type QrInput =
+  | { t: "click"; x: number; y: number }
+  | { t: "text"; v: string }
+  | { t: "key"; k: QrInputKey }
+  | { t: "scroll"; dy: number };
+
+export const QR_INPUT_KEYS = [
+  "Enter",
+  "Tab",
+  "Backspace",
+  "Delete",
+  "Escape",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Home",
+  "End",
+] as const;
+export type QrInputKey = (typeof QR_INPUT_KEYS)[number];
+
+/** Size of the server-side browser's page; live-view clicks use these coordinates. */
+export const QR_VIEWPORT = { width: 1280, height: 800 } as const;
+
 /** One line of the NDJSON stream returned by `/api/slack/run`. */
 export type RunEvent =
   | { t: "log"; m: string }
+  /** QR sign-in: the live view is up; inputs go to `/api/slack/qr-input` with this id. */
+  | { t: "live"; id: string }
+  /** QR sign-in: the server-side page, as a base64 JPEG. */
+  | { t: "frame"; data: string }
   | { t: "done"; data: unknown }
   | { t: "error"; m: string; detail?: string };

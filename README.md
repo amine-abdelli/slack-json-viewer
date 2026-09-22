@@ -32,13 +32,16 @@ The credentials are checked against `auth.test` immediately, so a bad paste is
 reported at once rather than at the first real request.
 
 **QR code** — shorter, when it works. The code *is* the credential: it encodes
-a one-shot sign-in link. Nothing is scanned with a phone, and no window opens
-for you to click; the helper decodes the link and consumes it in a browser it
-drives itself, which in the container runs on a virtual display and is
-invisible by design. In a signed-in Slack client: click the **workspace name**
+a one-shot sign-in link. Nothing is scanned with a phone: the helper decodes
+the link and consumes it in a browser it drives itself, on the server. In a signed-in Slack client: click the **workspace name**
 (not the logo) → **Sign in on mobile** → right-click the QR code → **Copy Image
 URL**, then paste. The link expires within a minute and is single-use, so copy
 a fresh one per attempt.
+
+On a workspace behind SSO, Slack then sends that browser to your company's
+sign-in page. The panel shows it live: click and type straight into the picture
+to authenticate, and the sign-in completes by itself once Slack sets its
+session cookie.
 
 This tab only appears where the helper is available, or can be built because
 Go is installed — it is the one part that needs a browser, and therefore the

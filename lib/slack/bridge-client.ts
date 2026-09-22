@@ -6,7 +6,7 @@
  * `error` event.
  */
 
-import type { BridgeStatus, RunEvent, RunRequest } from "./bridge-types";
+import type { BridgeStatus, QrInput, RunEvent, RunRequest } from "./bridge-types";
 import {
   detectBrowserLocale,
   isLocale,
@@ -61,10 +61,14 @@ export async function fetchStatus(signal?: AbortSignal): Promise<BridgeStatus | 
   }
 }
 
+/** The QR sign-in's live view: its id, then the frames of the server-side page. */
+export type LiveEvent = Extract<RunEvent, { t: "live" } | { t: "frame" }>;
+
 export async function runJob<T>(
   job: RunRequest,
   onLog: (line: string) => void,
   signal?: AbortSignal,
+  onLive?: (event: LiveEvent) => void,
 ): Promise<T> {
   const res = await fetch("/api/slack/run", {
     method: "POST",
@@ -93,8 +97,9 @@ export async function runJob<T>(
       return; // ignore a partial or malformed line
     }
     if (event.t === "log") onLog(event.m);
+    else if (event.t === "live" || event.t === "frame") onLive?.(event);
     else if (event.t === "done") result = { ok: true, data: event.data as T };
-    else throw new BridgeClientError(event.m, event.detail);
+    else if (event.t === "error") throw new BridgeClientError(event.m, event.detail);
   };
 
   for (;;) {
@@ -121,4 +126,24 @@ export async function logoutWorkspace(workspace: string): Promise<void> {
     headers: localeHeaders({ "content-type": "application/json" }),
     body: JSON.stringify({ workspace }),
   });
+}
+
+/**
+ * Inputs for a QR sign-in's live view go out one after another: keystrokes
+ * sent in parallel could reach the browser out of order.
+ */
+let inputQueue: Promise<unknown> = Promise.resolve();
+
+export function sendQrInput(id: string, input: QrInput): void {
+  inputQueue = inputQueue
+    .catch(() => {})
+    .then(() =>
+      fetch("/api/slack/qr-input", {
+        method: "POST",
+        headers: localeHeaders({ "content-type": "application/json" }),
+        body: JSON.stringify({ id, input }),
+        keepalive: true,
+      }),
+    )
+    .catch(() => {});
 }

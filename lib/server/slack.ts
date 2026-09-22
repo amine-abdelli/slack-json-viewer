@@ -11,7 +11,8 @@
  * shared deployment never lets one visitor reach another's workspace.
  */
 
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import crypto from "node:crypto";
 import { constants } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -19,10 +20,13 @@ import path from "node:path";
 
 import { sm, sp, st } from "@/lib/i18n/server";
 
-import type {
-  BridgeStatus,
-  ChannelSummary,
-  QrauthAvailability,
+import {
+  QR_INPUT_KEYS,
+  QR_VIEWPORT,
+  type BridgeStatus,
+  type ChannelSummary,
+  type QrauthAvailability,
+  type QrInput,
 } from "@/lib/slack/bridge-types";
 
 import {
@@ -184,6 +188,12 @@ async function ensureQrauth(onLog?: LogFn): Promise<string> {
 interface RunOptions {
   env?: Record<string, string>;
   stdin?: string;
+  /** Leave stdin open after `stdin` is written, for further input. */
+  keepStdinOpen?: boolean;
+  /** Receives `@@frame` lines (the QR helper's live view) instead of `onLog`. */
+  onFrame?: (base64: string) => void;
+  /** Called once the process exists — to talk to it while it runs. */
+  onSpawn?: (child: ChildProcessWithoutNullStreams) => void;
   onLog?: LogFn;
   label?: string;
   cwd?: string;
@@ -204,6 +214,9 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<string
 
     const abort = () => child.kill("SIGTERM");
     opts.signal?.addEventListener("abort", abort, { once: true });
+    opts.onSpawn?.(child);
+    // Writing to a helper that already exited must not crash the server.
+    child.stdin.on("error", () => {});
 
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
@@ -212,14 +225,18 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<string
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk: string) => {
-      stderrTail = (stderrTail + chunk).slice(-4000);
-      if (!opts.onLog) return;
       pending += chunk;
       const lines = pending.split(/\r\n|\r|\n/);
       pending = lines.pop() ?? "";
       for (const line of lines) {
+        if (line.startsWith(FRAME_PREFIX)) {
+          opts.onFrame?.(line.slice(FRAME_PREFIX.length));
+          continue;
+        }
         const clean = line.trim();
-        if (clean) opts.onLog(clean);
+        if (!clean) continue;
+        stderrTail = (stderrTail + clean + "\n").slice(-4000);
+        opts.onLog?.(clean);
       }
     });
 
@@ -230,7 +247,10 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<string
 
     child.on("close", (code) => {
       opts.signal?.removeEventListener("abort", abort);
-      if (pending.trim() && opts.onLog) opts.onLog(pending.trim());
+      if (pending.trim() && !pending.startsWith(FRAME_PREFIX)) {
+        stderrTail = (stderrTail + pending.trim()).slice(-4000);
+        opts.onLog?.(pending.trim());
+      }
       if (code === 0) {
         resolve(stdout);
         return;
@@ -241,7 +261,8 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<string
       );
     });
 
-    child.stdin.end(opts.stdin ?? "");
+    if (opts.keepStdinOpen) child.stdin.write(opts.stdin ?? "");
+    else child.stdin.end(opts.stdin ?? "");
   });
 }
 
@@ -276,6 +297,65 @@ async function registerWorkspace(
   await rememberCredentials(session, workspace, creds);
 }
 
+/* -------------------------------------------------------------------------- */
+/*  QR sign-in live view                                                       */
+/* -------------------------------------------------------------------------- */
+
+const FRAME_PREFIX = "@@frame ";
+
+/**
+ * QR sign-ins in progress, by live-view id. The browser the helper drives runs
+ * here, out of sight; when Slack hands over to an identity provider (SSO), the
+ * person has to act on that page. The panel shows its frames and sends clicks
+ * and keystrokes back through `sendQrInput`. Each entry belongs to the session
+ * that started it and to no one else.
+ */
+const liveLogins = new Map<string, { session: string; child: ChildProcessWithoutNullStreams }>();
+
+export type LiveEvent = { t: "live"; id: string } | { t: "frame"; data: string };
+
+const MAX_INPUT_TEXT = 2000;
+
+function isQrInput(value: unknown): value is QrInput {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+  switch (v.t) {
+    case "click":
+      return (
+        finite(v.x) && finite(v.y) &&
+        v.x >= 0 && v.y >= 0 && v.x <= QR_VIEWPORT.width && v.y <= QR_VIEWPORT.height
+      );
+    case "text":
+      return typeof v.v === "string" && v.v.length <= MAX_INPUT_TEXT;
+    case "key":
+      return (QR_INPUT_KEYS as readonly unknown[]).includes(v.k);
+    case "scroll":
+      return finite(v.dy) && Math.abs(v.dy) <= 5000;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Forwards one input to a QR sign-in's browser. Never logged: it may be a
+ * password typed into an identity provider.
+ */
+export function sendQrInput(session: string, id: unknown, input: unknown): void {
+  const login = typeof id === "string" ? liveLogins.get(id) : undefined;
+  if (!login || login.session !== session) throw new BridgeError(sm().liveGone);
+  if (!isQrInput(input)) throw new BridgeError(sm().invalidRequest);
+  const line: QrInput =
+    input.t === "click"
+      ? { t: "click", x: input.x, y: input.y }
+      : input.t === "text"
+        ? { t: "text", v: input.v }
+        : input.t === "key"
+          ? { t: "key", k: input.k }
+          : { t: "scroll", dy: input.dy };
+  login.child.stdin.write(JSON.stringify(line) + "\n");
+}
+
 /** Exchanges a QR code image for credentials, then registers the workspace. */
 export async function authenticateWithQr(
   session: string,
@@ -283,6 +363,7 @@ export async function authenticateWithQr(
   qrImage: string,
   onLog?: LogFn,
   signal?: AbortSignal,
+  onLive?: (event: LiveEvent) => void,
 ): Promise<{ workspace: string }> {
   const workspace = assertWorkspace(rawWorkspace);
   const image = qrImage.trim();
@@ -294,15 +375,29 @@ export async function authenticateWithQr(
   }
 
   const bin = await ensureQrauth(onLog);
-  const raw = await withLoginSlot(onLog, () => {
-    onLog?.(sm().readingQr);
-    return run(bin, ["-workspace", workspace, "-qr", "-"], {
-      stdin: image,
-      label: sm().signInLabel,
-      onLog,
-      signal,
+  const liveId = crypto.randomBytes(18).toString("base64url");
+  let raw: string;
+  try {
+    raw = await withLoginSlot(onLog, () => {
+      onLog?.(sm().readingQr);
+      return run(bin, ["-workspace", workspace, "-qr", "-"], {
+        // The QR code on the first line; stdin then stays open for live-view input.
+        stdin: image.replace(/\s+/g, "") + "\n",
+        keepStdinOpen: true,
+        label: sm().signInLabel,
+        onLog,
+        signal,
+        onSpawn: (child) => {
+          liveLogins.set(liveId, { session, child });
+          onLive?.({ t: "live", id: liveId });
+        },
+        onFrame: (data) => onLive?.({ t: "frame", data }),
+      });
     });
-  });
+  } finally {
+    liveLogins.get(liveId)?.child.stdin.end();
+    liveLogins.delete(liveId);
+  }
 
   let creds: { token?: string; cookie?: string };
   try {
