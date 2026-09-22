@@ -175,6 +175,9 @@ npm run build:qrauth
 - **Full-text search** with highlighting, plus an **author filter**. A thread
   is found by any of its messages.
 - **Light / dark theme** (Slack palettes).
+- **Five languages** — French, English, Spanish, Chinese and Russian — picked
+  from the browser's language, English for any other, and switchable from the
+  language menu. The exported page is written in the language on screen.
 - **Export**, from the header menu, either way:
   - **a self-contained HTML page** — a single file, CSS and JS included, that
     keeps search, the author filter, the theme, and a printable layout;

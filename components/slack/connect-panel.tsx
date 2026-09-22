@@ -35,6 +35,9 @@ import type {
   ChannelSummary,
   RunRequest,
 } from "@/lib/slack/bridge-types";
+import { INTL_TAGS } from "@/lib/i18n/config";
+import { useI18n } from "@/lib/i18n/react";
+import type { Messages } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 
 export interface ConnectPanelProps {
@@ -49,20 +52,6 @@ export interface ConnectPanelProps {
 type Step = "auth" | "channels";
 /** The QR login drives a browser; the token login needs none. */
 type AuthMode = "qr" | "token";
-
-const TOKEN_HELP = [
-  "Ouvrez Slack dans un navigateur (app.slack.com), connecté à l'espace de travail.",
-  "Outils de développement → onglet Réseau, puis rechargez la page.",
-  "Cliquez une requête vers « /api/… » → Charge utile → copiez la valeur « token ».",
-  "Onglet Application → Cookies → copiez la valeur du cookie « d ».",
-];
-
-const QR_HELP = [
-  "Ouvrez Slack (application de bureau ou navigateur), connecté à l'espace de travail.",
-  "Cliquez sur le nom de l'espace de travail, en haut à gauche — pas sur le logo.",
-  "Choisissez « Se connecter sur mobile ».",
-  "Clic droit sur le QR code → « Copier l'adresse de l'image », puis collez-la ci-dessous.",
-];
 
 /** Slack IDs as they appear in a dump: quoted fields, and `<@U…>` mentions. */
 const QUOTED_ID = /"([UWB][A-Z0-9]{6,})"/g;
@@ -84,9 +73,9 @@ function jsonFile(name: string, value: unknown): File {
   return new File([JSON.stringify(value)], name, { type: "application/json" });
 }
 
-function channelLabel(c: ChannelSummary): string {
+function channelLabel(c: ChannelSummary, m: Messages): string {
   if (c.name) return c.name;
-  if (c.isIM) return c.user ? `Message direct · ${c.user}` : "Message direct";
+  if (c.isIM) return c.user ? `${m.connect.directMessage} · ${c.user}` : m.connect.directMessage;
   return c.id;
 }
 
@@ -107,9 +96,9 @@ function channelQuery(raw: string): string {
 }
 
 /** 0 = exact ID, 1 = name starts with the query, 2 = contains it, -1 = no match. */
-function channelRank(c: ChannelSummary, q: string): number {
+function channelRank(c: ChannelSummary, q: string, m: Messages): number {
   const id = c.id.toLowerCase();
-  const label = channelLabel(c).toLowerCase();
+  const label = channelLabel(c, m).toLowerCase();
   if (id === q) return 0;
   if (label.startsWith(q)) return 1;
   if (label.includes(q) || id.includes(q) || (c.user?.toLowerCase().includes(q) ?? false)) {
@@ -142,6 +131,7 @@ export function ConnectPanel({
   onStatusChange,
   onFiles,
 }: ConnectPanelProps) {
+  const { locale, m, t, p, fmt } = useI18n();
   const [step, setStep] = React.useState<Step>("auth");
   const [workspace, setWorkspace] = React.useState("");
   /** Already signed in somewhere: the sign-in form stays folded until asked for. */
@@ -206,7 +196,7 @@ export function ConnectPanel({
         setError(
           err instanceof BridgeClientError
             ? { message: err.message, detail: err.detail }
-            : { message: err instanceof Error ? err.message : "Erreur inattendue." },
+            : { message: err instanceof Error ? err.message : m.common.unexpectedError },
         );
         return null;
       } finally {
@@ -214,12 +204,12 @@ export function ConnectPanel({
         setBusy(null);
       }
     },
-    [],
+    [m],
   );
 
   const loadChannels = React.useCallback(
     async (wsp: string, onlyMine: boolean) => {
-      const list = await withBusy("Récupération des canaux…", (signal) =>
+      const list = await withBusy(m.connect.busyChannels, (signal) =>
         runJob<ChannelSummary[]>(
           { action: "channels", workspace: wsp, memberOnly: onlyMine },
           pushLog,
@@ -232,7 +222,7 @@ export function ConnectPanel({
       setFilter("");
       setStep("channels");
     },
-    [pushLog, withBusy],
+    [m, pushLog, withBusy],
   );
 
   const toggleMemberOnly = React.useCallback(
@@ -246,19 +236,19 @@ export function ConnectPanel({
   const handleAuth = React.useCallback(async () => {
     const wsp = workspace.trim();
     if (!wsp) {
-      setError({ message: "Renseignez l'espace de travail." });
+      setError({ message: m.connect.missingWorkspace });
       return;
     }
     let job: RunRequest;
     if (activeMode === "qr") {
       if (!qrImage.trim()) {
-        setError({ message: "Collez l'image du QR code." });
+        setError({ message: m.connect.missingQr });
         return;
       }
       job = { action: "auth-qr", workspace: wsp, qrImage: qrImage.trim() };
     } else {
       if (!token.trim()) {
-        setError({ message: "Collez le jeton." });
+        setError({ message: m.connect.missingToken });
         return;
       }
       job = {
@@ -269,7 +259,7 @@ export function ConnectPanel({
       };
     }
 
-    const res = await withBusy("Connexion à Slack…", (signal) =>
+    const res = await withBusy(m.connect.busySignIn, (signal) =>
       runJob<{ workspace: string }>(job, pushLog, signal),
     );
     if (!res) return;
@@ -282,6 +272,7 @@ export function ConnectPanel({
     if (next) onStatusChange(next);
     await loadChannels(res.workspace, memberOnly);
   }, [
+    m,
     workspace,
     activeMode,
     qrImage,
@@ -299,7 +290,7 @@ export function ConnectPanel({
     const wsp = workspace.trim();
     const channel = channels.find((c) => c.id === selected);
 
-    const result = await withBusy("Récupération de la conversation…", async (signal) => {
+    const result = await withBusy(m.connect.busyDump, async (signal) => {
       const conversation = await runJob<unknown>(
         { action: "dump", workspace: wsp, channel: selected },
         pushLog,
@@ -322,7 +313,7 @@ export function ConnectPanel({
         }
       }
 
-      const name = channel ? channelLabel(channel).replace(/[^\w.-]+/g, "-") : selected;
+      const name = channel ? channelLabel(channel, m).replace(/[^\w.-]+/g, "-") : selected;
       files.push(jsonFile(`${name || selected}.json`, conversation));
       return files;
     });
@@ -330,7 +321,7 @@ export function ConnectPanel({
     if (!result) return;
     onFiles(result);
     handleOpenChange(false);
-  }, [selected, workspace, channels, withUsers, withBusy, pushLog, onFiles, handleOpenChange]);
+  }, [m, selected, workspace, channels, withUsers, withBusy, pushLog, onFiles, handleOpenChange]);
 
   const handleUseWorkspace = React.useCallback(
     async (wsp: string) => {
@@ -363,18 +354,18 @@ export function ConnectPanel({
   const { visibleChannels, matchCount } = React.useMemo(() => {
     const q = channelQuery(filter);
     const ranked = channels
-      .map((c) => ({ c, rank: q ? channelRank(c, q) : 2 }))
+      .map((c) => ({ c, rank: q ? channelRank(c, q, m) : 2 }))
       .filter(({ rank }) => rank >= 0)
       .sort((a, b) => {
         if (a.rank !== b.rank) return a.rank - b.rank;
         if (a.c.isArchived !== b.c.isArchived) return a.c.isArchived ? 1 : -1;
-        return channelLabel(a.c).localeCompare(channelLabel(b.c), "fr");
+        return channelLabel(a.c, m).localeCompare(channelLabel(b.c, m), INTL_TAGS[locale]);
       });
     return {
       visibleChannels: ranked.slice(0, MAX_VISIBLE_CHANNELS).map(({ c }) => c),
       matchCount: ranked.length,
     };
-  }, [channels, filter]);
+  }, [channels, filter, m, locale]);
 
   const lastLog = logs[logs.length - 1];
 
@@ -388,19 +379,17 @@ export function ConnectPanel({
                 type="button"
                 onClick={() => setStep("auth")}
                 className="-ml-1 rounded p-1 hover:bg-muted"
-                aria-label="Retour"
+                aria-label={m.common.back}
               >
                 <ArrowLeft className="size-4" />
               </button>
             ) : null}
-            {step === "auth" ? "Se connecter à Slack" : `Canaux · ${workspace}`}
+            {step === "auth" ? m.connect.title : t(m.connect.channelsTitle, { workspace })}
           </DialogTitle>
           <DialogDescription>
             {step === "auth"
-              ? "Récupère vos conversations directement depuis Slack, via son API."
-              : `${channels.length.toLocaleString("fr-FR")} ${
-                memberOnly ? "canaux dont vous êtes membre" : "canaux accessibles"
-              } — choisissez celui à ouvrir.`}
+              ? m.connect.description
+              : p(memberOnly ? m.connect.channelsMember : m.connect.channelsAll, channels.length)}
           </DialogDescription>
         </DialogHeader>
 
@@ -414,7 +403,7 @@ export function ConnectPanel({
                     className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--slack-green)]"
                   >
                     <span className="size-2 rounded-full bg-[var(--slack-green)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--slack-green)_25%,transparent)]" />
-                    Déjà connecté
+                    {m.connect.connected}
                   </p>
                   {status.workspaces.map((wsp) => (
                     <div
@@ -440,15 +429,15 @@ export function ConnectPanel({
                           </span>
                         </span>
                         <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--slack-green)]">
-                          Voir les canaux
+                          {m.connect.viewChannels}
                           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        title="Oublier cet espace de travail"
-                        aria-label={`Oublier ${wsp}`}
+                        title={m.connect.forget}
+                        aria-label={t(m.connect.forgetNamed, { workspace: wsp })}
                         disabled={Boolean(busy)}
                         onClick={() => void handleForget(wsp)}
                       >
@@ -470,20 +459,20 @@ export function ConnectPanel({
                   className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground disabled:opacity-60"
                 >
                   <Plus className="size-4" />
-                  Connecter un autre espace de travail
+                  {m.connect.addWorkspace}
                 </button>
               ) : (
               <>
               {connected ? (
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="h-px flex-1 bg-border" />
-                  Nouvel espace de travail
+                  {m.connect.newWorkspace}
                   <button
                     type="button"
                     onClick={() => setAddingWorkspace(false)}
                     className="rounded px-1 underline-offset-2 hover:text-foreground hover:underline"
                   >
-                    Masquer
+                    {m.connect.hide}
                   </button>
                   <span className="h-px flex-1 bg-border" />
                 </div>
@@ -491,7 +480,7 @@ export function ConnectPanel({
 
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="sd-workspace">
-                  Espace de travail
+                  {m.connect.workspace}
                 </label>
                 <Input
                   id="sd-workspace"
@@ -501,7 +490,7 @@ export function ConnectPanel({
                   onChange={(e) => setWorkspace(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Le sous-domaine, sans « .slack.com ».
+                  {m.connect.workspaceHint}
                 </p>
               </div>
 
@@ -509,8 +498,8 @@ export function ConnectPanel({
               <div className="flex gap-1 rounded-md bg-muted p-1">
                 {(
                   [
-                    ["token", "Jeton + cookie"],
-                    ["qr", "QR code"],
+                    ["token", m.connect.modeToken],
+                    ["qr", m.connect.modeQr],
                   ] as const
                 ).map(([mode, label]) => (
                   <button
@@ -534,10 +523,10 @@ export function ConnectPanel({
               {activeMode === "token" ? (
                 <div className="space-y-2">
                   <label className="text-sm font-medium" htmlFor="sd-token">
-                    Jeton et cookie
+                    {m.connect.tokenLabel}
                   </label>
                   <ol className="list-decimal space-y-1 rounded-md bg-muted/50 py-3 pl-8 pr-3 text-xs text-muted-foreground">
-                    {TOKEN_HELP.map((line) => (
+                    {m.connect.tokenHelp.map((line) => (
                       <li key={line}>{line}</li>
                     ))}
                   </ol>
@@ -553,7 +542,7 @@ export function ConnectPanel({
                   />
                   <Input
                     className="font-mono text-xs"
-                    placeholder="xoxd-… (cookie « d »)"
+                    placeholder={m.connect.cookiePlaceholder}
                     autoComplete="off"
                     spellCheck={false}
                     value={cookie}
@@ -561,17 +550,16 @@ export function ConnectPanel({
                     onChange={(e) => setCookie(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Ces valeurs donnent accès à votre Slack. Elles ne passent pas par le
-                    navigateur : elles sont chiffrées côté serveur, liées à votre session.
+                    {m.connect.tokenNotice}
                   </p>
                 </div>
               ) : (
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="sd-qr">
-                  Image du QR code
+                  {m.connect.qrLabel}
                 </label>
                 <ol className="list-decimal space-y-1 rounded-md bg-muted/50 py-3 pl-8 pr-3 text-xs text-muted-foreground">
-                  {QR_HELP.map((line) => (
+                  {m.connect.qrHelp.map((line) => (
                     <li key={line}>{line}</li>
                   ))}
                 </ol>
@@ -588,9 +576,7 @@ export function ConnectPanel({
                 />
                 {qrImage.startsWith("data:image/") ? (
                   <p className="text-xs text-[var(--slack-green)]">
-                    Image reconnue ({Math.round(qrImage.length / 1024)} Ko). Le code expire vite —
-                    connectez-vous maintenant. Aucune fenêtre ne s&apos;ouvrira : le navigateur
-                    tourne côté serveur.
+                    {t(m.connect.qrRecognised, { size: fmt.size(qrImage.length) })}
                   </p>
                 ) : null}
               </div>
@@ -605,8 +591,8 @@ export function ConnectPanel({
                 <Input
                   autoFocus
                   className="pl-8"
-                  placeholder="Rechercher un canal…"
-                  aria-label="Filtrer les canaux par nom ou par ID"
+                  placeholder={m.connect.filterPlaceholder}
+                  aria-label={m.connect.filterLabel}
                   aria-describedby="channel-filter-hint"
                   value={filter}
                   disabled={Boolean(busy)}
@@ -620,27 +606,23 @@ export function ConnectPanel({
                 className="min-h-5 px-0.5 text-xs leading-5 text-muted-foreground"
               >
                 {filter.trim() ? (
-                  <>
-                    <span className="font-medium text-foreground">
-                      {matchCount.toLocaleString("fr-FR")}
-                    </span>{" "}
-                    sur {channels.length.toLocaleString("fr-FR")} canaux
-                  </>
+                  p(m.connect.filterCount, matchCount, { total: fmt.number(channels.length) })
                 ) : (
                   <>
-                    Par nom <FilterExample>#general</FilterExample> ou par ID{" "}
-                    <FilterExample>C0123ABCD</FilterExample> — un lien Slack marche aussi.
+                    {m.connect.filterHintByName} <FilterExample>#general</FilterExample>{" "}
+                    {m.connect.filterHintById} <FilterExample>C0123ABCD</FilterExample>{" "}
+                    {m.connect.filterHintLink}
                   </>
                 )}
                 {matchCount > MAX_VISIBLE_CHANNELS
-                  ? ` · ${MAX_VISIBLE_CHANNELS} premiers affichés, affinez la recherche`
+                  ? t(m.connect.filterTruncated, { max: fmt.number(MAX_VISIBLE_CHANNELS) })
                   : ""}
               </p>
 
               <div className="max-h-[38svh] overflow-y-auto rounded-md border">
                 {visibleChannels.length === 0 ? (
                   <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    Aucun canal ne correspond.
+                    {m.connect.noChannel}
                   </p>
                 ) : (
                   visibleChannels.map((c) => (
@@ -657,12 +639,14 @@ export function ConnectPanel({
                       )}
                     >
                       <ChannelIcon channel={c} />
-                      <span className="min-w-0 flex-1 truncate">{channelLabel(c)}</span>
+                      <span className="min-w-0 flex-1 truncate">{channelLabel(c, m)}</span>
                       <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                         {c.id}
                       </span>
                       {c.isArchived ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">archivé</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {m.connect.archived}
+                        </span>
                       ) : c.memberCount > 0 ? (
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {c.memberCount}
@@ -681,7 +665,7 @@ export function ConnectPanel({
                   onChange={(e) => toggleMemberOnly(e.target.checked)}
                   className="size-4 accent-[var(--slack-green)]"
                 />
-                Seulement les canaux dont je suis membre
+                {m.connect.memberOnly}
               </label>
 
               <label className="flex items-center gap-2 text-sm">
@@ -692,7 +676,7 @@ export function ConnectPanel({
                   onChange={(e) => setWithUsers(e.target.checked)}
                   className="size-4 accent-[var(--slack-green)]"
                 />
-                Résoudre les noms des participants
+                {m.connect.resolveNames}
               </label>
             </div>
           )}
@@ -731,15 +715,15 @@ export function ConnectPanel({
           <DialogFooter className="border-t px-6 py-4">
             {busy ? (
               <Button variant="outline" onClick={() => abortRef.current?.abort()}>
-                Annuler
+                {m.common.cancel}
               </Button>
             ) : step === "auth" ? (
               <Button variant="slack" onClick={() => void handleAuth()}>
-                Se connecter
+                {m.connect.signIn}
               </Button>
             ) : (
               <Button variant="slack" disabled={!selected} onClick={() => void handleOpenChannel()}>
-                Ouvrir la conversation
+                {m.connect.open}
               </Button>
             )}
           </DialogFooter>

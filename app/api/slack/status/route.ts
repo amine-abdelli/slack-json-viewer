@@ -1,3 +1,4 @@
+import { localeFromRequest, withLocale } from "@/lib/i18n/server";
 import { status } from "@/lib/server/slack";
 import {
   isSecureRequest,
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   void sweepExpiredSessions();
 
   const session = resolveSession(request);
-  const body = await status(session.id);
+  const body = await withLocale(localeFromRequest(request), () => status(session.id));
 
   const headers = new Headers({
     "content-type": "application/json; charset=utf-8",

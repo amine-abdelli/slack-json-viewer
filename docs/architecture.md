@@ -53,6 +53,7 @@ flowchart LR
 | `components/slack/message-list.tsx`, `message.tsx` | Message, reactions, attachments, files, huddles, thread bar, day divider |
 | `components/slack/rich-text.tsx` | `rich_text` blocks, with an `mrkdwn` fallback and search highlighting |
 | `components/slack/sidebar.tsx` | Aubergine sidebar; the member list doubles as the author filter |
+| `components/slack/language-switcher.tsx` | Language menu, on the home screen and in the conversation header |
 | `components/ui/*` | shadcn/ui primitives |
 | `lib/slack/types.ts` | Shapes of the Slack data the viewer consumes |
 | `lib/slack/parse.ts` | Parsing, thread flattening, normalisation, grouping, formatting |
@@ -61,6 +62,7 @@ flowchart LR
 | `lib/slack/bridge-types.ts` | Types shared by the bridge routes and the panel — no Node imports |
 | `lib/slack/bridge-client.ts` | Browser-side client for `/api/slack/*` |
 | `lib/export/standalone.tsx` | Standalone HTML export; download helpers |
+| `lib/i18n/` | Languages: detection, catalogues, formatting, React provider, server side |
 | `lib/server/slack.ts` | The bridge: validation, sign-in, listing, dumping, resolving |
 | `lib/server/slack-api.ts` | Slack Web API client: transport, pagination, rate limits, dump |
 | `lib/server/credentials.ts` | Per-session encrypted credential storage |
@@ -163,6 +165,59 @@ each branch silently resets it. Because the dialog now reopens without
 remounting, its content sits one z-index above its overlay
 (`components/ui/dialog.tsx`): Radix portals the two separately, and the overlay
 can otherwise end up covering the content.
+
+## Languages
+
+The interface speaks French, English, Spanish, Chinese (simplified) and
+Russian. Everything is translated: the viewer, the connection panel, the
+bridge's progress lines and errors, and the exported page.
+
+### Picking the language
+
+`I18nProvider` (`lib/i18n/react.tsx`) wraps the viewer. The language is the one
+chosen by hand in the language menu, stored under `slack-viewer:locale`, or
+else the first of `navigator.languages` the app supports — matched on the
+primary subtag, so `fr-CA` gives French and `zh-TW` Chinese. **A browser in any
+other language gets English.** The menu's *Browser language* entry removes the
+stored choice. The provider also sets `<html lang>`.
+
+### Catalogues
+
+One file per language in `lib/i18n/messages/`. `fr.ts` is the reference: its
+shape is the `Messages` type, and every other catalogue is declared as
+`Messages`, so a missing or extra key fails the build. Messages are plain data:
+
+- strings with `{name}` placeholders, filled by `t(template, params)`;
+- plurals, keyed by CLDR category (`one`, `few`, `many`, `other`…) and picked
+  with `Intl.PluralRules` by `p(forms, n, params)` — Russian uses four forms,
+  Chinese one.
+
+Components read `const { m, t, p, fmt } = useI18n()` and write
+`p(m.thread.replies, n)`. Dates, numbers and file sizes go through `fmt`
+(`lib/i18n/format.ts`), which wraps `Intl` for the active language; *today* and
+*yesterday* come from `Intl.RelativeTimeFormat`, so they need no translation.
+
+Errors that are stored before being shown — a file that failed to load — are
+kept as functions of the catalogue, so they follow a language change instead
+of staying in the language they were raised in. Parse errors carry a code
+(`SlackParseError.code`) for the same reason.
+
+### The bridge
+
+The browser sends its language in an `x-slack-viewer-locale` header on every
+`/api/slack/*` request (`bridge-client.ts`), falling back to `Accept-Language`
+when absent. Each route runs its work inside `withLocale`
+(`lib/i18n/server.ts`), an `AsyncLocalStorage`, so code anywhere below reads
+its wording with `sm()` without the language being passed around. The Go QR
+helper's own progress lines stay in English.
+
+### The exported page
+
+The page is written in the language on screen when exporting: the markup is
+rendered inside `StaticI18nProvider`, `<html lang>` is set, and the few strings
+the page's script composes itself — the message counter and the thread
+panel's reply count — are serialised into `window.SLACK_EXPORT_I18N` with
+their plural forms and language tag.
 
 ## The bridge
 

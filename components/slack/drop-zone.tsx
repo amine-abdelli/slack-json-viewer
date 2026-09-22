@@ -5,6 +5,8 @@ import Image from "next/image";
 import { Plug, Upload, Users } from "lucide-react";
 
 import { GithubLink, ReadmeLink } from "@/components/slack/github-link";
+import { LanguageSwitcher } from "@/components/slack/language-switcher";
+import { useI18n } from "@/lib/i18n/react";
 import { Button } from "@/components/ui/button";
 import type { BridgeStatus } from "@/lib/slack/bridge-types";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,7 @@ export function DropZone({
   bridge,
   onConnect,
 }: DropZoneProps) {
+  const { m, t, p } = useI18n();
   const [dragging, setDragging] = React.useState(false);
   const conversationInput = React.useRef<HTMLInputElement>(null);
   const directoryInput = React.useRef<HTMLInputElement>(null);
@@ -38,7 +41,8 @@ export function DropZone({
   };
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-6">
+    <div className="relative flex min-h-svh items-center justify-center bg-background p-6">
+      <LanguageSwitcher className="absolute right-4 top-4" />
       <div className="w-full max-w-xl">
         <div className="mb-8 text-center">
           <Image
@@ -50,10 +54,7 @@ export function DropZone({
             className="mx-auto mb-4 size-12 rounded-[10px]"
           />
           <h1 className="text-2xl font-black tracking-tight">Slack JSON Viewer</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Déposez un export de conversation Slack (.json) pour le relire avec
-            l&apos;interface d&apos;origine, puis exportez-le en page HTML autonome.
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">{m.home.intro}</p>
         </div>
 
         <div
@@ -72,12 +73,8 @@ export function DropZone({
           )}
         >
           <Upload className="mb-3 size-7 text-muted-foreground" />
-          <p className="text-sm font-semibold">
-            Glissez-déposez votre fichier ici
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            ou cliquez pour parcourir vos fichiers — .json
-          </p>
+          <p className="text-sm font-semibold">{m.home.dropTitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{m.home.dropHint}</p>
           <input
             ref={conversationInput}
             type="file"
@@ -107,13 +104,13 @@ export function DropZone({
           <div className="flex items-center gap-3">
             <Users className="size-4 text-muted-foreground" />
             <div className="text-sm">
-              <p className="font-medium">Annuaire des utilisateurs</p>
+              <p className="font-medium">{m.home.directoryTitle}</p>
               <p className="text-xs text-muted-foreground">
                 {directorySize > 0
-                  ? `${directorySize.toLocaleString("fr-FR")} membres chargés${
+                  ? `${p(m.home.directoryLoaded, directorySize)}${
                       directoryName ? ` · ${directoryName}` : ""
                     }`
-                  : "Optionnel — un users.json, ou le fichier .txt d'un export Slack"}
+                  : m.home.directoryOptional}
               </p>
             </div>
           </div>
@@ -122,7 +119,7 @@ export function DropZone({
             size="sm"
             onClick={() => directoryInput.current?.click()}
           >
-            Choisir
+            {m.home.choose}
           </Button>
           <input
             ref={directoryInput}
@@ -141,23 +138,22 @@ export function DropZone({
             <div className="flex items-center gap-3">
               <Plug className="size-4 text-muted-foreground" />
               <div className="text-sm">
-                <p className="font-medium">Se connecter directement à Slack</p>
+                <p className="font-medium">{m.home.connectTitle}</p>
                 <p className="text-xs text-muted-foreground">
                   {bridge.workspaces.length > 0
-                    ? `Connecté · ${bridge.workspaces.join(", ")}`
-                    : "Jeton et cookie, ou QR code"}
+                    ? t(m.home.connectedTo, { workspaces: bridge.workspaces.join(", ") })
+                    : m.home.connectHint}
                 </p>
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={onConnect}>
-              Connecter
+              {m.home.connect}
             </Button>
           </div>
         ) : null}
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Les fichiers déposés restent dans votre navigateur. La connexion à
-          Slack, elle, passe par le serveur qui héberge cette page.
+          {m.home.privacy}
         </p>
 
         <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground/70">

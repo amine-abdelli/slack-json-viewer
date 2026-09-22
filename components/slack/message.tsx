@@ -1,7 +1,7 @@
 import * as React from "react";
 
 import { renderEmoji, normalizeShortcode } from "@/lib/slack/emoji";
-import { formatDayShort, formatFull, formatTime } from "@/lib/slack/parse";
+import { useI18n } from "@/lib/i18n/react";
 import { resolveUser } from "@/lib/slack/users";
 import type {
   NormalizedMessage,
@@ -80,6 +80,7 @@ function Reactions({
   directory: UserDirectory;
   overrides: Record<string, string>;
 }) {
+  const { m, t, p } = useI18n();
   if (message.reactions.length === 0) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-1">
@@ -90,7 +91,10 @@ function Reactions({
         return (
           <span
             key={r.name}
-            title={`${who || `${r.count} personne(s)`} a réagi avec :${normalizeShortcode(r.name)}:`}
+            title={t(m.message.reacted, {
+              who: who || p(m.message.people, r.count),
+              emoji: normalizeShortcode(r.name),
+            })}
             className="inline-flex h-[22px] items-center gap-1 rounded-full border px-[7px] text-[11px] font-bold leading-none"
             style={{
               background: "var(--slack-reaction-bg)",
@@ -183,15 +187,10 @@ function AttachmentCard({ attachment }: { attachment: SlackAttachment }) {
 
 const IMAGE_TYPES = new Set(["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "svg"]);
 
-function formatSize(size?: number): string {
-  if (!size) return "";
-  if (size < 1024) return `${size} o`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} Ko`;
-  return `${(size / (1024 * 1024)).toFixed(1)} Mo`;
-}
-
 function FileCard({ file }: { file: SlackFile }) {
-  const label = file.title || file.name || "Fichier";
+  const { m, fmt } = useI18n();
+  const formatSize = fmt.size;
+  const label = file.title || file.name || m.message.file;
   const href = file.permalink || file.url_private;
   const kind = (file.filetype ?? "").toLowerCase();
   const isImage = IMAGE_TYPES.has(kind);
@@ -285,7 +284,7 @@ function FileCard({ file }: { file: SlackFile }) {
           {[file.pretty_type ?? kind.toUpperCase(), formatSize(file.size)]
             .filter(Boolean)
             .join(" · ")}
-          {href ? " · ouvrir dans Slack" : ""}
+          {href ? ` · ${m.message.openInSlack}` : ""}
         </span>
       </span>
     </div>
@@ -293,6 +292,7 @@ function FileCard({ file }: { file: SlackFile }) {
 }
 
 function HuddleCard({ message }: { message: NormalizedMessage }) {
+  const { m } = useI18n();
   return (
     <div
       className="mt-1 flex max-w-[440px] items-center gap-3 rounded-[8px] border p-2.5"
@@ -316,7 +316,7 @@ function HuddleCard({ message }: { message: NormalizedMessage }) {
         </svg>
       </span>
       <span className="min-w-0">
-        <span className="block text-[15px] font-bold">Huddle</span>
+        <span className="block text-[15px] font-bold">{m.message.huddle}</span>
         <span className="block text-[12px]" style={{ color: "var(--slack-fg-muted)" }}>
           {message.permalink ? (
             <a
@@ -325,10 +325,10 @@ function HuddleCard({ message }: { message: NormalizedMessage }) {
               rel="noopener noreferrer"
               style={{ color: "var(--slack-blue)" }}
             >
-              Ouvrir l&apos;appel dans Slack
+              {m.message.openCall}
             </a>
           ) : (
-            "Appel audio"
+            m.message.audioCall
           )}
         </span>
       </span>
@@ -351,6 +351,7 @@ function ThreadBar({
   overrides: Record<string, string>;
   onOpenThread?: (message: NormalizedMessage) => void;
 }) {
+  const { m, t, p, fmt } = useI18n();
   const participants = Array.from(
     new Set(
       message.replyUsers.length > 0
@@ -388,21 +389,21 @@ function ThreadBar({
         className="text-[13px] font-bold"
         style={{ color: "var(--slack-blue)" }}
       >
-        {message.replyCount} réponse{message.replyCount > 1 ? "s" : ""}
+        {p(m.thread.replies, message.replyCount)}
       </span>
       {message.latestReply ? (
         <span
           className="truncate text-[12px] group-hover/thread:hidden"
           style={{ color: "var(--slack-fg-muted)" }}
         >
-          Dernière réponse le {formatDayShort(message.latestReply)}
+          {t(m.thread.lastReply, { date: fmt.dayShort(message.latestReply) })}
         </span>
       ) : null}
       <span
         className="hidden text-[12px] group-hover/thread:inline"
         style={{ color: "var(--slack-fg-muted)" }}
       >
-        Voir le fil
+        {m.thread.view}
       </span>
     </button>
   );
@@ -422,9 +423,10 @@ export function Message({
   inThread = false,
   onOpenThread,
 }: MessageProps) {
+  const { m, t, fmt } = useI18n();
   const user = resolveUser(message.userId, directory, overrides);
   const ctx: RenderContext = { directory, overrides, highlight };
-  const time = formatTime(message.date);
+  const time = fmt.time(message.date);
   const hasThread = !inThread && message.replies.length > 0;
 
   return (
@@ -454,7 +456,7 @@ export function Message({
           <span
             className="text-[15px] font-black leading-[1.46668]"
             style={{ color: "var(--slack-fg)" }}
-            title={user.known ? user.realName : `ID Slack ${user.id}`}
+            title={user.known ? user.realName : t(m.message.slackId, { id: user.id })}
           >
             {user.name}
           </span>
@@ -463,7 +465,7 @@ export function Message({
               className="rounded-[3px] px-1 text-[10px] font-bold uppercase text-white"
               style={{ background: "var(--slack-fg-muted)" }}
             >
-              app
+              {m.message.app}
             </span>
           ) : null}
           {showEmail && user.email ? (
@@ -481,15 +483,15 @@ export function Message({
                 background: "var(--slack-code-bg)",
                 color: "var(--slack-fg-muted)",
               }}
-              title="Cet identifiant n'est pas présent dans le fichier annuaire"
+              title={m.message.unresolvedTitle}
             >
-              non résolu
+              {m.message.unresolved}
             </span>
           ) : null}
           <span
             className="text-[12px]"
             style={{ color: "var(--slack-fg-muted)" }}
-            title={formatFull(message.date)}
+            title={fmt.full(message.date)}
           >
             {time}
           </span>
@@ -500,8 +502,7 @@ export function Message({
             className="mb-0.5 text-[11px] italic"
             style={{ color: "var(--slack-fg-muted)" }}
           >
-            Réponse dans un fil dont le message d&apos;origine est absent de
-            l&apos;export
+            {m.message.orphanReply}
           </div>
         ) : null}
 
@@ -510,7 +511,7 @@ export function Message({
         {message.edited ? (
           <span className="text-[11px]" style={{ color: "var(--slack-fg-muted)" }}>
             {" "}
-            (modifié)
+            {m.message.edited}
           </span>
         ) : null}
 

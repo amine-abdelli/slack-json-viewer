@@ -7,6 +7,34 @@
  */
 
 import type { BridgeStatus, RunEvent, RunRequest } from "./bridge-types";
+import {
+  detectBrowserLocale,
+  isLocale,
+  LOCALE_HEADER,
+  LOCALE_STORAGE_KEY,
+  type Locale,
+} from "@/lib/i18n/config";
+import { interpolate } from "@/lib/i18n/format";
+import { MESSAGES } from "@/lib/i18n/messages";
+
+/**
+ * The language the page is displayed in — the same rule as `I18nProvider`:
+ * the one chosen by hand, else the browser's. Sent with every request so the
+ * bridge's progress lines and errors come back in it.
+ */
+function uiLocale(): Locale {
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (isLocale(stored)) return stored;
+  } catch {
+    /* fall through */
+  }
+  return detectBrowserLocale();
+}
+
+function localeHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return { ...extra, [LOCALE_HEADER]: uiLocale() };
+}
 
 export class BridgeClientError extends Error {
   constructor(
@@ -21,7 +49,11 @@ export class BridgeClientError extends Error {
 /** Probes the server; returns null when the endpoint is not deployed at all. */
 export async function fetchStatus(signal?: AbortSignal): Promise<BridgeStatus | null> {
   try {
-    const res = await fetch("/api/slack/status", { signal, cache: "no-store" });
+    const res = await fetch("/api/slack/status", {
+      signal,
+      cache: "no-store",
+      headers: localeHeaders(),
+    });
     if (!res.ok) return null;
     return (await res.json()) as BridgeStatus;
   } catch {
@@ -36,14 +68,15 @@ export async function runJob<T>(
 ): Promise<T> {
   const res = await fetch("/api/slack/run", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: localeHeaders({ "content-type": "application/json" }),
     body: JSON.stringify(job),
     signal,
   });
 
   if (!res.ok || !res.body) {
     throw new BridgeClientError(
-      (await res.text().catch(() => "")) || `La requête a échoué (${res.status}).`,
+      (await res.text().catch(() => "")) ||
+        interpolate(MESSAGES[uiLocale()].bridge.requestFailed, { status: res.status }),
     );
   }
 
@@ -77,7 +110,7 @@ export async function runJob<T>(
   if (buffer.trim()) handle(buffer);
 
   if (!result) {
-    throw new BridgeClientError("La connexion s'est interrompue avant la fin de l'opération.");
+    throw new BridgeClientError(MESSAGES[uiLocale()].bridge.interrupted);
   }
   return (result as { ok: true; data: T }).data;
 }
@@ -85,7 +118,7 @@ export async function runJob<T>(
 export async function logoutWorkspace(workspace: string): Promise<void> {
   await fetch("/api/slack/logout", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: localeHeaders({ "content-type": "application/json" }),
     body: JSON.stringify({ workspace }),
   });
 }

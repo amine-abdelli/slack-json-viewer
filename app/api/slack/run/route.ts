@@ -12,6 +12,7 @@ import {
   resolveSession,
   sessionCookieHeader,
 } from "@/lib/server/session";
+import { localeFromRequest, sm, withLocale } from "@/lib/i18n/server";
 import type { RunEvent, RunRequest } from "@/lib/slack/bridge-types";
 
 export const runtime = "nodejs";
@@ -47,14 +48,20 @@ function isRunRequest(value: unknown): value is RunRequest {
  * `EventSource`, it can be a POST.
  */
 export async function POST(request: Request) {
+  const locale = localeFromRequest(request);
+  // Everything the job logs or throws reads its wording from this locale.
+  return withLocale(locale, () => handle(request));
+}
+
+async function handle(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return new Response("Corps de requête invalide.", { status: 400 });
+    return new Response(sm().invalidBody, { status: 400 });
   }
   if (!isRunRequest(body)) {
-    return new Response("Requête invalide.", { status: 400 });
+    return new Response(sm().invalidRequest, { status: 400 });
   }
   const job = body;
   const signal = request.signal;
@@ -115,7 +122,7 @@ export async function POST(request: Request) {
         } else if (err instanceof SlackApiError) {
           send({ t: "error", m: err.message, detail: err.code });
         } else {
-          send({ t: "error", m: err instanceof Error ? err.message : "Erreur inattendue." });
+          send({ t: "error", m: err instanceof Error ? err.message : sm().unexpectedError });
         }
       } finally {
         closed = true;

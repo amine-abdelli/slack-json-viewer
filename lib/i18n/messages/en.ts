@@ -1,0 +1,264 @@
+import { plural } from "../format";
+import type { Messages } from "./fr";
+
+export const en: Messages = {
+  language: {
+    label: "Language",
+    auto: "Browser language",
+  },
+
+  common: {
+    cancel: "Cancel",
+    save: "Save",
+    clear: "Clear",
+    back: "Back",
+    unexpectedError: "Unexpected error.",
+  },
+
+  links: {
+    readme: "How to archive?",
+    readmeTitle: "How to archive a Slack conversation — project README",
+    githubTitle: "Source code & projects — github.com/amine-abdelli",
+  },
+
+  home: {
+    intro:
+      "Drop a Slack conversation export (.json) to read it again in Slack's own interface, then export it as a self-contained HTML page.",
+    dropTitle: "Drag and drop your file here",
+    dropHint: "or click to browse your files — .json",
+    directoryTitle: "User directory",
+    directoryLoaded: plural({
+      one: "{n} member loaded",
+      other: "{n} members loaded",
+    }),
+    directoryOptional: "Optional — a users.json, or the .txt file from a Slack export",
+    choose: "Choose",
+    connectTitle: "Connect straight to Slack",
+    connectedTo: "Connected · {workspaces}",
+    connectHint: "Token and cookie, or QR code",
+    connect: "Connect",
+    privacy:
+      "Dropped files stay in your browser. The Slack connection, on the other hand, goes through the server hosting this page.",
+  },
+
+  load: {
+    notJson: "“{file}” is not valid JSON.",
+    noIds: "No Slack ID found in “{file}”. Expected format: Name / ID / Email.",
+    notObject: "The file does not contain a JSON object.",
+    noMessages:
+      "Missing or invalid `messages` key: this JSON is not a Slack conversation export.",
+    badMessages: "The messages are not in the expected format (missing `ts` key).",
+    exportFailed: "Export failed: {error}",
+  },
+
+  sidebar: {
+    conversation: "Conversation",
+    noFile: "No file loaded",
+    members: "Members · {n}",
+    editNames: "Fix names",
+    directory: plural({
+      one: "Directory: {n} user",
+      other: "Directory: {n} users",
+    }),
+  },
+
+  viewer: {
+    backToList: "Back to conversations",
+    close: "Close the conversation",
+    messages: plural({ one: "{n} message", other: "{n} messages" }),
+    messagesFiltered: plural({ one: "{shown} / {n} message", other: "{shown} / {n} messages" }),
+    search: "Search the conversation",
+    hideEmails: "Hide e-mails",
+    showEmails: "Show e-mails",
+    lightTheme: "Light theme",
+    darkTheme: "Dark theme",
+    openFile: "Open another file",
+    export: "Export",
+    exportHtml: "Self-contained HTML page",
+    exportHtmlHint: "A single file, clickable offline",
+    exportJson: "Conversation JSON",
+    exportJsonHint: "The raw data, reloadable here",
+    unknownIds: plural({
+      one: "{n} ID missing from the directory.",
+      other: "{n} IDs missing from the directory.",
+    }),
+    nameThem: "Give them a name",
+    noMatch: "No message matches this search.",
+    dropOverlay: "Drop a .json or a directory",
+  },
+
+  thread: {
+    title: "Thread",
+    close: "Close the thread (Esc)",
+    replies: plural({ one: "{n} reply", other: "{n} replies" }),
+    lastReply: "Last reply on {date}",
+    view: "View thread",
+  },
+
+  names: {
+    title: "Participant names",
+    description:
+      "IDs missing from the directory can be named by hand. These names are kept in this browser and carried into the HTML export.",
+    notInDirectory: "not found in the directory",
+  },
+
+  message: {
+    reacted: "{who} reacted with :{emoji}:",
+    people: plural({ one: "{n} person", other: "{n} people" }),
+    file: "File",
+    openInSlack: "open in Slack",
+    huddle: "Huddle",
+    openCall: "Open the call in Slack",
+    audioCall: "Audio call",
+    slackId: "Slack ID {id}",
+    app: "app",
+    unresolved: "unresolved",
+    unresolvedTitle: "This ID is not in the directory file",
+    orphanReply: "Reply in a thread whose original message is missing from the export",
+    edited: "(edited)",
+  },
+
+  exported: {
+    search: "Search…",
+    allAuthors: "All authors",
+    theme: "Light / dark theme",
+    print: "Print / PDF",
+    top: "Back to top",
+  },
+
+  connect: {
+    title: "Connect to Slack",
+    channelsTitle: "Channels · {workspace}",
+    description: "Fetches your conversations straight from Slack, through its API.",
+    channelsMember: plural({
+      one: "{n} channel you are a member of — pick the one to open.",
+      other: "{n} channels you are a member of — pick the one to open.",
+    }),
+    channelsAll: plural({
+      one: "{n} accessible channel — pick the one to open.",
+      other: "{n} accessible channels — pick the one to open.",
+    }),
+    connected: "Already connected",
+    viewChannels: "View channels",
+    forget: "Forget this workspace",
+    forgetNamed: "Forget {workspace}",
+    addWorkspace: "Connect another workspace",
+    newWorkspace: "New workspace",
+    hide: "Hide",
+    workspace: "Workspace",
+    workspaceHint: "The subdomain, without “.slack.com”.",
+    modeToken: "Token + cookie",
+    modeQr: "QR code",
+    tokenLabel: "Token and cookie",
+    tokenHelp: [
+      "Open Slack in a browser (app.slack.com), signed in to the workspace.",
+      "Developer tools → Network tab, then reload the page.",
+      "Click a request to “/api/…” → Payload → copy the “token” value.",
+      "Application tab → Cookies → copy the value of the “d” cookie.",
+    ],
+    cookiePlaceholder: "xoxd-… (“d” cookie)",
+    tokenNotice:
+      "These values give access to your Slack. They do not go back to the browser: they are encrypted on the server, tied to your session.",
+    qrLabel: "QR code image",
+    qrHelp: [
+      "Open Slack (desktop app or browser), signed in to the workspace.",
+      "Click the workspace name, top left — not the logo.",
+      "Choose “Sign in on mobile”.",
+      "Right-click the QR code → “Copy Image Address”, then paste it below.",
+    ],
+    qrRecognised:
+      "Image recognised ({size}). The code expires quickly — sign in now. No window will open: the browser runs on the server.",
+    filterPlaceholder: "Search for a channel…",
+    filterLabel: "Filter channels by name or ID",
+    filterHintByName: "By name",
+    filterHintById: "or by ID",
+    filterHintLink: "— a Slack link works too.",
+    filterCount: plural({ one: "{n} of {total} channel", other: "{n} of {total} channels" }),
+    filterTruncated: " · first {max} shown, refine your search",
+    noChannel: "No channel matches.",
+    archived: "archived",
+    directMessage: "Direct message",
+    memberOnly: "Only channels I am a member of",
+    resolveNames: "Resolve participant names",
+    signIn: "Sign in",
+    open: "Open the conversation",
+    busySignIn: "Signing in to Slack…",
+    busyChannels: "Fetching channels…",
+    busyDump: "Fetching the conversation…",
+    missingWorkspace: "Enter the workspace.",
+    missingQr: "Paste the QR code image.",
+    missingToken: "Paste the token.",
+  },
+
+  bridge: {
+    requestFailed: "The request failed ({status}).",
+    interrupted: "The connection dropped before the operation finished.",
+  },
+
+  server: {
+    invalidBody: "Invalid request body.",
+    invalidRequest: "Invalid request.",
+    logoutFailed: "Sign-out failed.",
+    unexpectedError: "Unexpected error.",
+    invalidWorkspace:
+      "Invalid workspace name: “{value}”. Expected: the subdomain, for example “acme”.",
+    invalidChannel: "Invalid channel ID: “{value}”.",
+    qrBinMissing: "SLACK_VIEWER_QRAUTH_BIN points to {path}, which does not exist.",
+    qrBinNotExecutable: "SLACK_VIEWER_QRAUTH_BIN points to {path}, which is not executable.",
+    qrUnavailableReason:
+      "QR sign-in needs the “qrauth” helper. Use the Docker image, or install Go and run “npm run build:qrauth”. Token sign-in works everywhere.",
+    qrUnavailable: "The QR sign-in helper is not available.",
+    qrUnavailableDetail: "Use the Docker image, which ships it, or sign in with a token and a cookie.",
+    qrBuilding: "building the sign-in helper (first use)…",
+    spawnFailed: "could not start “{bin}”: {error}",
+    processFailed: "{what} failed (code {code})",
+    signInLabel: "Signing in to Slack",
+    checking: "checking credentials…",
+    signedIn: "signed in as {user} on {team}",
+    qrNotDataUrl: "The QR code image must be a data URL starting with “data:image/”.",
+    qrNotDataUrlDetail:
+      "In Slack: click the workspace name → “Sign in on mobile” → right-click the QR code → “Copy Image Address”.",
+    readingQr: "reading the QR code…",
+    qrBadOutput: "Unexpected answer from the sign-in helper.",
+    qrNoToken: "Sign-in did not return a token.",
+    tokenPrefix: "The token must start with “xox”, for example “xoxc-…”.",
+    cookieRequired: "A “xoxc-” token also needs the “d” cookie, which starts with “xoxd-”.",
+    waitingSlot: "waiting for a sign-in slot…",
+    noCredentials: "No credentials stored for “{workspace}” — sign in again.",
+    listingMine: "your conversations…",
+    listingAll: "all visible conversations…",
+    resolving: plural({ one: "resolving {n} member…", other: "resolving {n} members…" }),
+    slackErrors: {
+      invalid_auth: "The Slack credentials are no longer valid — sign in again.",
+      not_authed: "The Slack credentials are no longer valid — sign in again.",
+      token_revoked: "The Slack token was revoked — sign in again.",
+      token_expired: "The Slack token has expired — sign in again.",
+      channel_not_found: "This channel cannot be found, or your account cannot access it.",
+      not_in_channel: "Your account is not a member of this channel.",
+      missing_scope: "This token lacks the permissions this request needs.",
+      ratelimited: "Slack is rate limiting requests; try again in a moment.",
+    },
+    slackRefused: "Slack refused {method}: {code}.",
+    slackHttp: "Slack answered {status} to {method}.",
+    rateLimitedWait: "Slack is rate limiting, pausing for {seconds} s…",
+    rateLimitedRetry: "Slack is rate limiting, retrying…",
+    conversationsFetched: plural({
+      one: "{n} conversation fetched",
+      other: "{n} conversations fetched",
+    }),
+    stoppedAfterPages: "stopped after {max} pages",
+    usersResolved: "{done}/{total} members resolved",
+    emptyFirstPage: "Slack answered without error, but without a single message.",
+    messagesFetched: plural({ one: "{n} message fetched", other: "{n} messages fetched" }),
+    stoppedAfterHistory: "stopped after {max} pages of history",
+    infoFailed: "conversations.info failed ({code})",
+    noChannelInfo: "Slack does not describe channel {channel} for this token.",
+    emptyHistory:
+      "Slack returned no message for this conversation. If it is not empty, this token cannot read it — on Enterprise Grid a token is tied to one specific workspace.",
+    threadsToFetch: plural({
+      one: "{n} thread to fetch…",
+      other: "{n} threads to fetch…",
+    }),
+    threadsFetched: "{done}/{total} threads fetched",
+  },
+};

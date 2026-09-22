@@ -11,6 +11,8 @@
  * a browser (see `tools/qrauth`).
  */
 
+import { sm, sp, st } from "@/lib/i18n/server";
+
 import type { SlackCredentials } from "./credentials";
 
 /** Overridable so tests can point at a stub. */
@@ -130,17 +132,11 @@ type AuthTestResponse = ApiResponse & AuthTest;
 /*  Transport                                                                  */
 /* -------------------------------------------------------------------------- */
 
-/** Messages worth showing instead of Slack's bare error code. */
-const FRIENDLY: Record<string, string> = {
-  invalid_auth: "Les identifiants Slack ne sont plus valides — reconnectez-vous.",
-  not_authed: "Les identifiants Slack ne sont plus valides — reconnectez-vous.",
-  token_revoked: "Le jeton Slack a été révoqué — reconnectez-vous.",
-  token_expired: "Le jeton Slack a expiré — reconnectez-vous.",
-  channel_not_found: "Ce canal est introuvable, ou votre compte n'y a pas accès.",
-  not_in_channel: "Votre compte n'est pas membre de ce canal.",
-  missing_scope: "Ce jeton n'a pas les droits nécessaires pour cette requête.",
-  ratelimited: "Slack limite les requêtes ; réessayez dans un instant.",
-};
+/** A message worth showing instead of Slack's bare error code, in the request's language. */
+function friendly(code: string): string | undefined {
+  const known: Record<string, string> = sm().slackErrors;
+  return Object.prototype.hasOwnProperty.call(known, code) ? known[code] : undefined;
+}
 
 /** Credential problems: no point retrying or falling back on these. */
 export const FATAL_AUTH_CODES = [
@@ -203,12 +199,12 @@ async function call<T extends ApiResponse>(
     // Slack throttles with 429 and says how long to wait.
     if (res.status === 429 && attempt < MAX_RETRIES) {
       const wait = Math.min((Number(res.headers.get("retry-after")) || 1) * 1000, MAX_RETRY_WAIT_MS);
-      onLog?.(`Slack limite les requêtes, pause de ${Math.round(wait / 1000)} s…`);
+      onLog?.(st(sm().rateLimitedWait, { seconds: Math.round(wait / 1000) }));
       await sleep(wait, signal);
       continue;
     }
     if (!res.ok) {
-      throw new SlackApiError(`Slack a répondu ${res.status} à ${method}.`, `http_${res.status}`);
+      throw new SlackApiError(st(sm().slackHttp, { status: res.status, method }), `http_${res.status}`);
     }
 
     const body = (await res.json()) as T;
@@ -216,11 +212,11 @@ async function call<T extends ApiResponse>(
       const code = body.error ?? "unknown_error";
       if (tolerate.includes(code)) return body;
       if (code === "ratelimited" && attempt < MAX_RETRIES) {
-        onLog?.("Slack limite les requêtes, nouvelle tentative…");
+        onLog?.(sm().rateLimitedRetry);
         await sleep(1000 * (attempt + 1), signal);
         continue;
       }
-      throw new SlackApiError(FRIENDLY[code] ?? `Slack a refusé ${method} : ${code}.`, code);
+      throw new SlackApiError(friendly(code) ?? st(sm().slackRefused, { method, code }), code);
     }
     return body;
   }
@@ -285,10 +281,10 @@ async function listConversations(
     );
     out.push(...(body.channels ?? []));
     cursor = body.response_metadata?.next_cursor ?? "";
-    onLog?.(`${out.length} conversations récupérées`);
+    onLog?.(sp(sm().conversationsFetched, out.length));
     if (!cursor) return out;
   }
-  onLog?.(`arrêt après ${MAX_LIST_PAGES} pages`);
+  onLog?.(st(sm().stoppedAfterPages, { max: MAX_LIST_PAGES }));
   return out;
 }
 
@@ -369,7 +365,7 @@ export async function usersInfo(
       if (body.ok && body.user) out.push(body.user);
       done += 1;
       if (done % 25 === 0 || done === wanted.length) {
-        onLog?.(`${done}/${wanted.length} membres résolus`);
+        onLog?.(st(sm().usersResolved, { done, total: wanted.length }));
       }
     },
     signal,
@@ -405,14 +401,14 @@ async function conversationsHistory(
     const batch = body.messages ?? [];
     out.push(...batch);
     if (page === 0 && batch.length === 0) {
-      onLog?.("Slack a répondu sans erreur, mais sans aucun message.");
+      onLog?.(sm().emptyFirstPage);
     } else {
-      onLog?.(`${out.length} messages récupérés`);
+      onLog?.(sp(sm().messagesFetched, out.length));
     }
     cursor = body.response_metadata?.next_cursor ?? "";
     if (!cursor) return out;
   }
-  onLog?.(`arrêt après ${MAX_HISTORY_PAGES} pages d'historique`);
+  onLog?.(st(sm().stoppedAfterHistory, { max: MAX_HISTORY_PAGES }));
   return out;
 }
 
@@ -466,23 +462,16 @@ export async function dumpConversation(
   signal?: AbortSignal,
 ): Promise<Conversation> {
   const info = await conversationsInfo(creds, channel, signal).catch((err) => {
-    onLog?.(
-      `conversations.info a échoué (${err instanceof SlackApiError ? err.code : "erreur"})`,
-    );
+    onLog?.(st(sm().infoFailed, { code: (err instanceof SlackApiError && err.code) || "?" }));
     return null;
   });
   // Worth saying out loud: a channel this token cannot even describe is usually
   // one it cannot read either.
-  if (!info) onLog?.(`Slack ne décrit pas le canal ${channel} pour ce jeton.`);
+  if (!info) onLog?.(st(sm().noChannelInfo, { channel }));
 
   const messages = await conversationsHistory(creds, channel, onLog, signal);
   if (messages.length === 0) {
-    throw new SlackApiError(
-      "Slack n'a renvoyé aucun message pour cette conversation. " +
-        "Si elle n'est pas vide, ce jeton n'y a pas accès — sur Enterprise Grid " +
-        "un jeton est lié à un espace de travail précis.",
-      "empty_history",
-    );
+    throw new SlackApiError(sm().emptyHistory, "empty_history");
   }
   // History comes back newest first; the viewer sorts too, but keeping the file
   // chronological makes it readable on its own.
@@ -493,7 +482,7 @@ export async function dumpConversation(
   );
 
   if (roots.length > 0) {
-    onLog?.(`${roots.length} fils de discussion à récupérer…`);
+    onLog?.(sp(sm().threadsToFetch, roots.length));
     let done = 0;
     await inParallel(
       roots,
@@ -503,7 +492,7 @@ export async function dumpConversation(
         if (replies.length > 0) root.replies = replies;
         done += 1;
         if (done % 10 === 0 || done === roots.length) {
-          onLog?.(`${done}/${roots.length} fils récupérés`);
+          onLog?.(st(sm().threadsFetched, { done, total: roots.length }));
         }
       },
       signal,

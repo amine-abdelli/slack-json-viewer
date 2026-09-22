@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { formatDay } from "@/lib/slack/parse";
+import { useI18n } from "@/lib/i18n/react";
 import type { NormalizedMessage, UserDirectory } from "@/lib/slack/types";
 import { DayDivider, Message } from "./message";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function MessageList({
   className,
   onOpenThread,
 }: MessageListProps) {
+  const { fmt } = useI18n();
   const rows: React.ReactNode[] = [];
   let currentDay: string | null = null;
 
@@ -38,7 +39,7 @@ export function MessageList({
         <DayDivider
           key={`day-${currentDay}`}
           day={currentDay}
-          label={formatDay(message.date)}
+          label={fmt.day(message.date)}
         />
       );
     }

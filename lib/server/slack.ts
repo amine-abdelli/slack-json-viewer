@@ -17,6 +17,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { sm, sp, st } from "@/lib/i18n/server";
+
 import type {
   BridgeStatus,
   ChannelSummary,
@@ -79,7 +81,7 @@ export function assertWorkspace(raw: string): string {
   const wsp = normaliseWorkspace(raw);
   if (!WORKSPACE_RE.test(wsp)) {
     throw new BridgeError(
-      `Nom d'espace de travail invalide : « ${raw} ». Attendu : le sous-domaine, par exemple « acme ».`,
+      st(sm().invalidWorkspace, { value: raw }),
     );
   }
   return wsp;
@@ -88,7 +90,7 @@ export function assertWorkspace(raw: string): string {
 export function assertChannel(raw: string): string {
   const id = raw.trim();
   if (!CHANNEL_RE.test(id)) {
-    throw new BridgeError(`Identifiant de canal invalide : « ${raw} ».`);
+    throw new BridgeError(st(sm().invalidChannel, { value: raw }));
   }
   return id;
 }
@@ -135,7 +137,7 @@ export async function qrauthStatus(): Promise<QrauthAvailability> {
       : {
           ready: false,
           buildable: false,
-          reason: `SLACK_VIEWER_QRAUTH_BIN pointe vers ${override}, introuvable.`,
+          reason: st(sm().qrBinMissing, { path: override }),
         };
   }
   if (await isExecutable(QRAUTH_BIN)) return { ready: true, buildable: false };
@@ -145,10 +147,7 @@ export async function qrauthStatus(): Promise<QrauthAvailability> {
     return {
       ready: false,
       buildable: false,
-      reason:
-        "La connexion par QR code exige l'assistant « qrauth ». Utilisez l'image Docker, " +
-        "ou installez Go puis lancez « npm run build:qrauth ». La connexion par jeton, elle, " +
-        "fonctionne partout.",
+      reason: sm().qrUnavailableReason,
     };
   }
   return { ready: false, buildable: true };
@@ -158,7 +157,7 @@ async function ensureQrauth(onLog?: LogFn): Promise<string> {
   const override = process.env.SLACK_VIEWER_QRAUTH_BIN;
   if (override) {
     if (await isExecutable(override)) return override;
-    throw new BridgeError(`SLACK_VIEWER_QRAUTH_BIN pointe vers ${override}, qui n'est pas exécutable.`);
+    throw new BridgeError(st(sm().qrBinNotExecutable, { path: override }));
   }
   if (await isExecutable(QRAUTH_BIN)) return QRAUTH_BIN;
   const onPath = await which("qrauth");
@@ -166,12 +165,9 @@ async function ensureQrauth(onLog?: LogFn): Promise<string> {
 
   const go = await which("go");
   if (!go) {
-    throw new BridgeError(
-      "L'assistant d'authentification par QR code n'est pas disponible.",
-      "Utilisez l'image Docker, qui l'embarque, ou connectez-vous avec un jeton et un cookie.",
-    );
+    throw new BridgeError(sm().qrUnavailable, sm().qrUnavailableDetail);
   }
-  onLog?.("compilation de l'assistant d'authentification (première utilisation)…");
+  onLog?.(sm().qrBuilding);
   try {
     await fs.access(path.join(QRAUTH_DIR, "go.sum"));
   } catch {
@@ -229,7 +225,7 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<string
 
     child.on("error", (err) => {
       opts.signal?.removeEventListener("abort", abort);
-      reject(new BridgeError(`impossible de lancer « ${path.basename(bin)} » : ${err.message}`));
+      reject(new BridgeError(st(sm().spawnFailed, { bin: path.basename(bin), error: err.message })));
     });
 
     child.on("close", (code) => {
@@ -240,7 +236,9 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<string
         return;
       }
       const what = opts.label ?? `${path.basename(bin)} ${args[0] ?? ""}`.trim();
-      reject(new BridgeError(`${what} a échoué (code ${code})`, stderrTail.trim() || undefined));
+      reject(
+        new BridgeError(st(sm().processFailed, { what, code: String(code) }), stderrTail.trim() || undefined),
+      );
     });
 
     child.stdin.end(opts.stdin ?? "");
@@ -272,9 +270,9 @@ async function registerWorkspace(
   onLog?: LogFn,
   signal?: AbortSignal,
 ): Promise<void> {
-  onLog?.("vérification des identifiants…");
+  onLog?.(sm().checking);
   const who = await authTest(creds, signal);
-  onLog?.(`connecté en tant que ${who.user ?? "?"} sur ${who.team ?? workspace}`);
+  onLog?.(st(sm().signedIn, { user: who.user ?? "?", team: who.team ?? workspace }));
   await rememberCredentials(session, workspace, creds);
 }
 
@@ -290,17 +288,17 @@ export async function authenticateWithQr(
   const image = qrImage.trim();
   if (!image.startsWith("data:image/")) {
     throw new BridgeError(
-      "L'image du QR code doit être une URL de données commençant par « data:image/ ».",
-      "Dans Slack : cliquez sur le nom de l'espace de travail → « Se connecter sur mobile » → clic droit sur le QR code → « Copier l'adresse de l'image ».",
+      sm().qrNotDataUrl,
+      sm().qrNotDataUrlDetail,
     );
   }
 
   const bin = await ensureQrauth(onLog);
   const raw = await withLoginSlot(onLog, () => {
-    onLog?.("lecture du QR code…");
+    onLog?.(sm().readingQr);
     return run(bin, ["-workspace", workspace, "-qr", "-"], {
       stdin: image,
-      label: "La connexion à Slack",
+      label: sm().signInLabel,
       onLog,
       signal,
     });
@@ -310,10 +308,10 @@ export async function authenticateWithQr(
   try {
     creds = JSON.parse(raw.trim());
   } catch {
-    throw new BridgeError("Réponse inattendue de l'assistant d'authentification.", raw.slice(0, 500));
+    throw new BridgeError(sm().qrBadOutput, raw.slice(0, 500));
   }
   if (!creds.token || !creds.cookie) {
-    throw new BridgeError("L'authentification n'a pas renvoyé de jeton.");
+    throw new BridgeError(sm().qrNoToken);
   }
 
   await registerWorkspace(session, workspace, { token: creds.token, cookie: creds.cookie }, onLog, signal);
@@ -334,11 +332,11 @@ export async function authenticateWithToken(
   const cookie = rawCookie.trim().replace(/^d=/, "");
 
   if (!/^xox[a-z]-/.test(token)) {
-    throw new BridgeError("Le jeton doit commencer par « xox », par exemple « xoxc-… ».");
+    throw new BridgeError(sm().tokenPrefix);
   }
   // Browser (client) tokens are only valid alongside the session cookie.
   if (/^xox[ce]-/.test(token) && !cookie.startsWith("xoxd-")) {
-    throw new BridgeError("Un jeton « xoxc- » exige aussi le cookie « d », qui commence par « xoxd- ».");
+    throw new BridgeError(sm().cookieRequired);
   }
 
   await registerWorkspace(session, workspace, { token, cookie }, onLog, signal);
@@ -359,7 +357,7 @@ const loginQueue: (() => void)[] = [];
 
 async function withLoginSlot<T>(onLog: LogFn | undefined, fn: () => Promise<T>): Promise<T> {
   if (activeLogins >= MAX_CONCURRENT_LOGINS) {
-    onLog?.("en attente d'un créneau de connexion…");
+    onLog?.(sm().waitingSlot);
     await new Promise<void>((resolve) => loginQueue.push(resolve));
   }
   activeLogins += 1;
@@ -380,7 +378,7 @@ async function credentialsFor(session: string, workspace: string): Promise<Slack
   const creds = await recallCredentials(session, workspace);
   if (!creds) {
     throw new BridgeError(
-      `Aucun identifiant enregistré pour « ${workspace} » — reconnectez-vous.`,
+      st(sm().noCredentials, { workspace }),
     );
   }
   return creds;
@@ -424,7 +422,7 @@ export async function listChannels(
   const workspace = assertWorkspace(rawWorkspace);
   const creds = await credentialsFor(session, workspace);
   const list = memberOnly ? usersConversations : conversationsList;
-  onLog?.(memberOnly ? "vos conversations…" : "toutes les conversations visibles…");
+  onLog?.(memberOnly ? sm().listingMine : sm().listingAll);
   return summarise(await list(creds, ALL_CHANNEL_TYPES, onLog, signal));
 }
 
@@ -443,7 +441,7 @@ export async function resolveUsers(
 ): Promise<RawUser[]> {
   const workspace = assertWorkspace(rawWorkspace);
   const creds = await credentialsFor(session, workspace);
-  onLog?.(`résolution de ${ids.length} membres…`);
+  onLog?.(sp(sm().resolving, ids.length));
   return usersInfo(creds, ids, onLog, signal);
 }
 

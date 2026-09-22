@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { GithubLink, ReadmeLink } from "@/components/slack/github-link";
+import { useI18n } from "@/lib/i18n/react";
 import { resolveUser } from "@/lib/slack/users";
 import type { ConversationMeta, UserDirectory } from "@/lib/slack/types";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ export function Sidebar({
   onEditNames,
   directorySize,
 }: SidebarProps) {
+  const { m, t, p } = useI18n();
   return (
     <aside
       className="hidden w-[260px] shrink-0 flex-col md:flex"
@@ -51,7 +53,7 @@ export function Sidebar({
 
       <div className="flex-1 overflow-y-auto py-2 text-[15px]">
         <SectionLabel icon={<MessagesSquare className="size-3.5" />}>
-          Conversation
+          {m.sidebar.conversation}
         </SectionLabel>
 
         {meta ? (
@@ -74,19 +76,20 @@ export function Sidebar({
             <span className="truncate">{meta.displayName}</span>
           </button>
         ) : (
-          <p className="px-3 py-1 text-[13px] opacity-60">Aucun fichier chargé</p>
+          <p className="px-3 py-1 text-[13px] opacity-60">{m.sidebar.noFile}</p>
         )}
 
         {meta && meta.participants.length > 0 ? (
           <>
             <div className="mt-4 flex items-center justify-between pr-2">
               <SectionLabel icon={<Users className="size-3.5" />}>
-                Membres · {meta.participants.length}
+                {t(m.sidebar.members, { n: meta.participants.length })}
               </SectionLabel>
               <button
                 type="button"
                 onClick={onEditNames}
-                title="Corriger les noms"
+                title={m.sidebar.editNames}
+                aria-label={m.sidebar.editNames}
                 className="rounded p-1 opacity-70 hover:bg-[var(--slack-aubergine-hover)] hover:opacity-100"
               >
                 <Pencil className="size-3.5" />
@@ -126,8 +129,7 @@ export function Sidebar({
         style={{ borderColor: "rgba(255,255,255,.12)" }}
       >
         <p className="opacity-60">
-          Annuaire : {directorySize.toLocaleString("fr-FR")} utilisateur
-          {directorySize > 1 ? "s" : ""}
+          {p(m.sidebar.directory, directorySize)}
         </p>
         <div className="mt-1 flex items-center gap-2 opacity-45">
           <ReadmeLink />
