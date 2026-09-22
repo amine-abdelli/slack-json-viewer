@@ -242,7 +242,8 @@ npm run build
 
 How the pieces fit together — the viewer, the bridge, the `run` protocol,
 sessions and credentials, the QR helper — is described in
-[docs/architecture.md](docs/architecture.md).
+[docs/architecture.md](docs/architecture.md). Where the project could go as a
+product — market, ideas, strategy, roadmap — is in [docs/product/](docs/product/README.md).
 
 ## Deploying
 
