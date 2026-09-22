@@ -1,10 +1,11 @@
 import * as React from "react";
 import { BookOpen } from "lucide-react";
 
+import { useI18n } from "@/lib/i18n/react";
 import { cn } from "@/lib/utils";
 
 const GITHUB_URL = "https://github.com/amine-abdelli";
-/** Section « Preparing the sources » du README (slackdump). */
+/** Section « Preparing the sources » du README. */
 const README_URL =
   "https://github.com/amine-abdelli/slack-json-viewer#preparing-the-sources";
 
@@ -24,12 +25,13 @@ function GithubMark({ className }: { className?: string }) {
 
 /** Lien discret vers le GitHub de l'auteur. */
 export function GithubLink({ className }: { className?: string }) {
+  const { m } = useI18n();
   return (
     <a
       href={GITHUB_URL}
       target="_blank"
       rel="noopener noreferrer"
-      title="Code source & projets — github.com/amine-abdelli"
+      title={m.links.githubTitle}
       className={cn(
         "inline-flex items-center gap-1.5 transition-opacity hover:opacity-100",
         className
@@ -43,19 +45,20 @@ export function GithubLink({ className }: { className?: string }) {
 
 /** Lien discret vers le README : comment archiver une conversation Slack. */
 export function ReadmeLink({ className }: { className?: string }) {
+  const { m } = useI18n();
   return (
     <a
       href={README_URL}
       target="_blank"
       rel="noopener noreferrer"
-      title="Comment archiver une conversation Slack (slackdump) — README du projet"
+      title={m.links.readmeTitle}
       className={cn(
         "inline-flex items-center gap-1.5 transition-opacity hover:opacity-100",
         className
       )}
     >
       <BookOpen className="size-3.5" />
-      <span>Comment archiver ?</span>
+      <span>{m.links.readme}</span>
     </a>
   );
 }

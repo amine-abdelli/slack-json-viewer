@@ -2,7 +2,10 @@
 
 import * as React from "react";
 import {
+  ArrowLeft,
+  Braces,
   Download,
+  FileCode2,
   Hash,
   Loader2,
   Lock,
@@ -18,6 +21,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,7 +36,10 @@ import {
 } from "@/components/ui/dialog";
 import { MessageList } from "@/components/slack/message-list";
 import { Sidebar } from "@/components/slack/sidebar";
+import { ConnectPanel } from "@/components/slack/connect-panel";
 import { DropZone } from "@/components/slack/drop-zone";
+import { LanguageSwitcher } from "@/components/slack/language-switcher";
+import { useI18n, type I18n } from "@/lib/i18n/react";
 import {
   buildMeta,
   normalizeMessages,
@@ -36,7 +48,13 @@ import {
   suggestUnknownNames,
 } from "@/lib/slack/parse";
 import { parseUserDirectory, resolveUser } from "@/lib/slack/users";
-import { buildStandaloneHtml, downloadHtml } from "@/lib/export/standalone";
+import {
+  buildStandaloneHtml,
+  downloadHtml,
+  downloadJson,
+} from "@/lib/export/standalone";
+import { fetchStatus } from "@/lib/slack/bridge-client";
+import type { BridgeStatus } from "@/lib/slack/bridge-types";
 import { Message } from "@/components/slack/message";
 import type {
   NormalizedMessage,
@@ -49,6 +67,12 @@ const LS_DIRECTORY_NAME = "slack-viewer:directory-name";
 const LS_OVERRIDES = "slack-viewer:overrides";
 const LS_PREFS = "slack-viewer:prefs";
 
+/**
+ * An error to show, worded at render time — so it follows a language change
+ * instead of staying in the language it was raised in.
+ */
+type ViewerError = (i18n: I18n) => string;
+
 /** Reads a JSON value from localStorage; returns the fallback when unavailable. */
 function readStorage<T>(key: string, fallback: T): T {
   try {
@@ -60,6 +84,8 @@ function readStorage<T>(key: string, fallback: T): T {
 }
 
 export function Viewer() {
+  const i18n = useI18n();
+  const { m, p } = i18n;
   const [conversation, setConversation] = React.useState<SlackConversation | null>(
     null
   );
@@ -87,16 +113,32 @@ export function Viewer() {
   );
   const [showEmail, setShowEmail] = React.useState(prefs.showEmail !== false);
   const [dark, setDark] = React.useState(prefs.dark === true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<ViewerError | null>(null);
+  /** Stores an error to word later (a function in state needs the updater form). */
+  const fail = React.useCallback((next: ViewerError) => setError(() => next), []);
   const [namesOpen, setNamesOpen] = React.useState(false);
   const [thread, setThread] = React.useState<NormalizedMessage | null>(null);
   const [exporting, setExporting] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
 
+  // The connection panel lives here rather than in the drop zone, so it stays
+  // mounted once a conversation is open: reopening it lands back on the channel
+  // list, already loaded.
+  const [bridge, setBridge] = React.useState<BridgeStatus | null>(null);
+  const [connectOpen, setConnectOpen] = React.useState(false);
+
   const scrollRef = React.useRef<HTMLElement>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
 
   /* ---------------------------------------------------------------- state */
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    void fetchStatus(controller.signal).then((next) => {
+      if (!controller.signal.aborted) setBridge(next);
+    });
+    return () => controller.abort();
+  }, []);
 
   React.useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -132,10 +174,11 @@ export function Viewer() {
             applyDirectory(dir, file.name);
             continue;
           }
-          setError(
+          const name = file.name;
+          fail(
             err instanceof SlackParseError
-              ? err.message
-              : `« ${file.name} » n'est pas un JSON valide.`
+              ? ({ m }) => m.load[err.code]
+              : ({ m, t }) => t(m.load.notJson, { file: name })
           );
           continue;
         }
@@ -145,9 +188,8 @@ export function Viewer() {
       if (Object.keys(dir).length > 0) {
         applyDirectory(dir, file.name);
       } else {
-        setError(
-          `Aucun identifiant Slack reconnu dans « ${file.name} ». Format attendu : Name / ID / Email.`
-        );
+        const name = file.name;
+        fail(({ m, t }) => t(m.load.noIds, { file: name }));
       }
     }
 
@@ -161,7 +203,7 @@ export function Viewer() {
         /* directory too large for storage — kept in memory only */
       }
     }
-  }, []);
+  }, [fail]);
 
   /* ------------------------------------------------------------- derived */
 
@@ -208,6 +250,7 @@ export function Viewer() {
     setExporting(true);
     try {
       const html = await buildStandaloneHtml({
+        i18n,
         meta,
         messages,
         directory,
@@ -217,13 +260,65 @@ export function Viewer() {
       });
       downloadHtml(`${fileName || "slack-conversation"}.html`, html);
     } catch (err) {
-      setError(
-        `Échec de l'export : ${err instanceof Error ? err.message : String(err)}`
-      );
+      const reason = err instanceof Error ? err.message : String(err);
+      fail(({ m, t }) => t(m.load.exportFailed, { error: reason }));
     } finally {
       setExporting(false);
     }
-  }, [meta, messages, directory, overrides, showEmail, dark, fileName]);
+  }, [i18n, fail, meta, messages, directory, overrides, showEmail, dark, fileName]);
+
+  /**
+   * Going back means the channel list when the bridge is connected, and the
+   * home screen otherwise — in both cases, the place the conversation came
+   * from.
+   */
+  const backLabel = bridge?.available ? m.viewer.backToList : m.viewer.close;
+
+  const goBack = React.useCallback(() => {
+    if (bridge?.available) {
+      setConnectOpen(true);
+      return;
+    }
+    setConversation(null);
+    setThread(null);
+    setQuery("");
+    setAuthor(null);
+  }, [bridge]);
+
+  /*
+   * The browser's own back button does the same as the arrow. While a
+   * conversation is on screen (and the panel is closed), one history entry is
+   * pushed; popping it goes back. The arrow pops that entry too, so the two
+   * never drift apart.
+   */
+  const historyEntryRef = React.useRef(false);
+  const conversationOnScreen = Boolean(conversation) && !connectOpen;
+
+  React.useEffect(() => {
+    if (!conversationOnScreen || historyEntryRef.current) return;
+    window.history.pushState(window.history.state, "");
+    historyEntryRef.current = true;
+  }, [conversationOnScreen]);
+
+  React.useEffect(() => {
+    const onPopState = () => {
+      if (!historyEntryRef.current) return;
+      historyEntryRef.current = false;
+      goBack();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [goBack]);
+
+  const handleBack = React.useCallback(() => {
+    if (historyEntryRef.current) window.history.back();
+    else goBack();
+  }, [goBack]);
+
+  const handleExportJson = React.useCallback(() => {
+    if (!conversation) return;
+    downloadJson(`${fileName || "slack-conversation"}.json`, conversation);
+  }, [conversation, fileName]);
 
   const saveOverrides = React.useCallback((next: Record<string, string>) => {
     setOverrides(next);
@@ -236,240 +331,298 @@ export function Viewer() {
 
   /* --------------------------------------------------------------- views */
 
+  // Rendered first in both branches below, so React keeps the same instance
+  // when a conversation opens or closes: the panel keeps its step (the channel
+  // list), its channels and its filter. Moving it breaks "back to the list".
+  const connectPanel =
+    bridge?.available ? (
+      <ConnectPanel
+        open={connectOpen}
+        onOpenChange={setConnectOpen}
+        status={bridge}
+        onStatusChange={setBridge}
+        onFiles={handleFiles}
+      />
+    ) : null;
+
   if (!conversation || !meta) {
     return (
-      <DropZone
-        onFiles={handleFiles}
-        error={error}
-        directorySize={Object.keys(directory).length}
-        directoryName={directoryName}
-      />
+      <>
+        {connectPanel}
+        <DropZone
+          onFiles={handleFiles}
+          error={error ? error(i18n) : null}
+          directorySize={Object.keys(directory).length}
+          directoryName={directoryName}
+          bridge={bridge}
+          onConnect={() => setConnectOpen(true)}
+        />
+      </>
     );
   }
 
   const filtering = Boolean(query.trim() || author);
 
   return (
-    <div
-      className="flex h-svh overflow-hidden"
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setDragging(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragging(false);
-        void handleFiles(Array.from(e.dataTransfer.files));
-      }}
-    >
-      <Sidebar
-        meta={meta}
-        directory={directory}
-        overrides={overrides}
-        activeUser={author}
-        onSelectUser={setAuthor}
-        onEditNames={() => setNamesOpen(true)}
-        directorySize={Object.keys(directory).length}
-      />
-
+    <>
+      {connectPanel}
       <div
-        className="flex min-w-0 flex-1 flex-col"
-        style={{ background: "var(--slack-bg)" }}
+        className="flex h-svh overflow-hidden"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget === e.target) setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          void handleFiles(Array.from(e.dataTransfer.files));
+        }}
       >
-        {/* Channel header --------------------------------------------- */}
-        <header
-          className="flex h-[49px] shrink-0 items-center gap-3 border-b px-4"
-          style={{ borderColor: "var(--slack-border)" }}
-        >
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            {meta.kind === "channel" ? (
-              <Hash className="size-4 shrink-0" style={{ color: "var(--slack-fg)" }} />
-            ) : (
-              <Lock className="size-4 shrink-0" style={{ color: "var(--slack-fg)" }} />
-            )}
-            <h1
-              className="min-w-0 truncate text-[18px] font-black"
-              style={{ color: "var(--slack-fg)" }}
-              title={meta.rawName}
-            >
-              {meta.displayName}
-            </h1>
-          </div>
-          <span
-            className="hidden shrink-0 rounded-full border px-2 py-[2px] text-[11px] font-bold xl:inline"
-            style={{
-              borderColor: "var(--slack-border)",
-              color: "var(--slack-fg-muted)",
-            }}
-          >
-            {filtered.length === messages.length
-              ? `${messages.length} messages`
-              : `${filtered.length} / ${messages.length} messages`}
-          </span>
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2"
-                style={{ color: "var(--slack-fg-muted)" }}
-              />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher dans la conversation"
-                className="h-8 w-40 pl-8 text-[13px] lg:w-52 2xl:w-72"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2"
-                  aria-label="Effacer"
-                >
-                  <X className="size-3.5" style={{ color: "var(--slack-fg-muted)" }} />
-                </button>
-              ) : null}
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title={showEmail ? "Masquer les e-mails" : "Afficher les e-mails"}
-              onClick={() => setShowEmail((v) => !v)}
-            >
-              {showEmail ? <Mail /> : <MailX />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title={dark ? "Thème clair" : "Thème sombre"}
-              onClick={() => setDark((v) => !v)}
-            >
-              {dark ? <Sun /> : <Moon />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title="Ouvrir un autre fichier"
-              onClick={() => fileInput.current?.click()}
-            >
-              <Upload />
-            </Button>
-            <Button size="sm" variant="slack" onClick={handleExport} disabled={exporting}>
-              {exporting ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <Download />
-              )}
-              <span className="hidden lg:inline">Exporter en HTML</span>
-              <span className="lg:hidden">Exporter</span>
-            </Button>
-            <input
-              ref={fileInput}
-              type="file"
-              multiple
-              accept=".json,.txt,.tsv,.csv"
-              className="hidden"
-              onChange={(e) => {
-                void handleFiles(Array.from(e.target.files ?? []));
-                e.target.value = "";
-              }}
-            />
-          </div>
-        </header>
-
-        {error ? (
-          <div
-            className="flex items-center gap-2 px-4 py-2 text-[13px]"
-            style={{ background: "var(--slack-mention-bg)", color: "var(--slack-red)" }}
-          >
-            {error}
-            <button type="button" onClick={() => setError(null)} className="ml-auto">
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ) : null}
-
-        {unknown.unknownIds.length > 0 ? (
-          <div
-            className="flex flex-wrap items-center gap-2 px-4 py-1.5 text-[12px]"
-            style={{
-              background: "var(--slack-mention-bg)",
-              color: "var(--slack-fg-muted)",
-            }}
-          >
-            {unknown.unknownIds.length} identifiant
-            {unknown.unknownIds.length > 1 ? "s" : ""} absent
-            {unknown.unknownIds.length > 1 ? "s" : ""} de l&apos;annuaire.
-            <button
-              type="button"
-              className="font-bold underline"
-              style={{ color: "var(--slack-blue)" }}
-              onClick={() => setNamesOpen(true)}
-            >
-              Leur attribuer un nom
-            </button>
-          </div>
-        ) : null}
-
-        {/* Messages ---------------------------------------------------- */}
-        <main ref={scrollRef} className="slack-scroll flex-1 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <p
-              className="px-6 py-16 text-center text-sm"
-              style={{ color: "var(--slack-fg-muted)" }}
-            >
-              Aucun message ne correspond à cette recherche.
-            </p>
-          ) : (
-            <MessageList
-              messages={filtered}
-              directory={directory}
-              overrides={overrides}
-              highlight={query.trim().length > 1 ? query.trim() : undefined}
-              showEmail={showEmail}
-              filtering={filtering}
-              onOpenThread={setThread}
-            />
-          )}
-        </main>
-      </div>
-
-      {thread ? (
-        <ThreadPanel
-          thread={thread}
-          channelName={meta.displayName}
+        <Sidebar
+          meta={meta}
           directory={directory}
           overrides={overrides}
-          highlight={query.trim().length > 1 ? query.trim() : undefined}
-          showEmail={showEmail}
-          onClose={() => setThread(null)}
+          activeUser={author}
+          onSelectUser={setAuthor}
+          onEditNames={() => setNamesOpen(true)}
+          directorySize={Object.keys(directory).length}
         />
-      ) : null}
 
-      {dragging ? (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="rounded-xl border-2 border-dashed border-white px-10 py-8 text-center text-white">
-            <Upload className="mx-auto mb-2 size-7" />
-            <p className="font-bold">Déposez un .json ou un annuaire</p>
-          </div>
+        <div
+          className="flex min-w-0 flex-1 flex-col"
+          style={{ background: "var(--slack-bg)" }}
+        >
+          {/* Channel header --------------------------------------------- */}
+          <header
+            className="flex h-[49px] shrink-0 items-center gap-3 border-b px-4"
+            style={{ borderColor: "var(--slack-border)" }}
+          >
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="-ml-1 shrink-0"
+              title={backLabel}
+              aria-label={backLabel}
+              onClick={handleBack}
+            >
+              <ArrowLeft />
+            </Button>
+
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              {meta.kind === "channel" ? (
+                <Hash className="size-4 shrink-0" style={{ color: "var(--slack-fg)" }} />
+              ) : (
+                <Lock className="size-4 shrink-0" style={{ color: "var(--slack-fg)" }} />
+              )}
+              <h1
+                className="min-w-0 truncate text-[18px] font-black"
+                style={{ color: "var(--slack-fg)" }}
+                title={meta.rawName}
+              >
+                {meta.displayName}
+              </h1>
+            </div>
+            <span
+              className="hidden shrink-0 rounded-full border px-2 py-[2px] text-[11px] font-bold xl:inline"
+              style={{
+                borderColor: "var(--slack-border)",
+                color: "var(--slack-fg-muted)",
+              }}
+            >
+              {filtered.length === messages.length
+                ? p(m.viewer.messages, messages.length)
+                : p(m.viewer.messagesFiltered, messages.length, {
+                    shown: i18n.fmt.number(filtered.length),
+                  })}
+            </span>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2"
+                  style={{ color: "var(--slack-fg-muted)" }}
+                />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={m.viewer.search}
+                  aria-label={m.viewer.search}
+                  className="h-8 w-40 pl-8 text-[13px] lg:w-52 2xl:w-72"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                    aria-label={m.common.clear}
+                  >
+                    <X className="size-3.5" style={{ color: "var(--slack-fg-muted)" }} />
+                  </button>
+                ) : null}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                title={showEmail ? m.viewer.hideEmails : m.viewer.showEmails}
+                aria-label={showEmail ? m.viewer.hideEmails : m.viewer.showEmails}
+                onClick={() => setShowEmail((v) => !v)}
+              >
+                {showEmail ? <Mail /> : <MailX />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                title={dark ? m.viewer.lightTheme : m.viewer.darkTheme}
+                aria-label={dark ? m.viewer.lightTheme : m.viewer.darkTheme}
+                onClick={() => setDark((v) => !v)}
+              >
+                {dark ? <Sun /> : <Moon />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                title={m.viewer.openFile}
+                aria-label={m.viewer.openFile}
+                onClick={() => fileInput.current?.click()}
+              >
+                <Upload />
+              </Button>
+              <LanguageSwitcher compact />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="slack" disabled={exporting}>
+                    {exporting ? <Loader2 className="animate-spin" /> : <Download />}
+                    <span>{m.viewer.export}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuItem onSelect={() => void handleExport()}>
+                    <FileCode2 />
+                    <div>
+                      <p className="font-medium">{m.viewer.exportHtml}</p>
+                      <p className="text-xs text-muted-foreground">{m.viewer.exportHtmlHint}</p>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleExportJson}>
+                    <Braces />
+                    <div>
+                      <p className="font-medium">{m.viewer.exportJson}</p>
+                      <p className="text-xs text-muted-foreground">{m.viewer.exportJsonHint}</p>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                accept=".json,.txt,.tsv,.csv"
+                className="hidden"
+                onChange={(e) => {
+                  void handleFiles(Array.from(e.target.files ?? []));
+                  e.target.value = "";
+                }}
+              />
+            </div>
+          </header>
+
+          {error ? (
+            <div
+              className="flex items-center gap-2 px-4 py-2 text-[13px]"
+              style={{ background: "var(--slack-mention-bg)", color: "var(--slack-red)" }}
+            >
+              {error(i18n)}
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="ml-auto"
+                aria-label={m.common.clear}
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : null}
+
+          {unknown.unknownIds.length > 0 ? (
+            <div
+              className="flex flex-wrap items-center gap-2 px-4 py-1.5 text-[12px]"
+              style={{
+                background: "var(--slack-mention-bg)",
+                color: "var(--slack-fg-muted)",
+              }}
+            >
+              {p(m.viewer.unknownIds, unknown.unknownIds.length)}
+              <button
+                type="button"
+                className="font-bold underline"
+                style={{ color: "var(--slack-blue)" }}
+                onClick={() => setNamesOpen(true)}
+              >
+                {m.viewer.nameThem}
+              </button>
+            </div>
+          ) : null}
+
+          {/* Messages ---------------------------------------------------- */}
+          <main ref={scrollRef} className="slack-scroll flex-1 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p
+                className="px-6 py-16 text-center text-sm"
+                style={{ color: "var(--slack-fg-muted)" }}
+              >
+                {m.viewer.noMatch}
+              </p>
+            ) : (
+              <MessageList
+                messages={filtered}
+                directory={directory}
+                overrides={overrides}
+                highlight={query.trim().length > 1 ? query.trim() : undefined}
+                showEmail={showEmail}
+                filtering={filtering}
+                onOpenThread={setThread}
+              />
+            )}
+          </main>
         </div>
-      ) : null}
 
-      <NamesDialog
-        key={namesOpen ? "names-open" : "names-closed"}
-        open={namesOpen}
-        onOpenChange={setNamesOpen}
-        ids={meta.participants}
-        directory={directory}
-        overrides={overrides}
-        candidates={unknown.candidates}
-        onSave={saveOverrides}
-      />
-    </div>
+        {thread ? (
+          <ThreadPanel
+            thread={thread}
+            channelName={meta.displayName}
+            directory={directory}
+            overrides={overrides}
+            highlight={query.trim().length > 1 ? query.trim() : undefined}
+            showEmail={showEmail}
+            onClose={() => setThread(null)}
+          />
+        ) : null}
+
+        {dragging ? (
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="rounded-xl border-2 border-dashed border-white px-10 py-8 text-center text-white">
+              <Upload className="mx-auto mb-2 size-7" />
+              <p className="font-bold">{m.viewer.dropOverlay}</p>
+            </div>
+          </div>
+        ) : null}
+
+        <NamesDialog
+          key={namesOpen ? "names-open" : "names-closed"}
+          open={namesOpen}
+          onOpenChange={setNamesOpen}
+          ids={meta.participants}
+          directory={directory}
+          overrides={overrides}
+          candidates={unknown.candidates}
+          onSave={saveOverrides}
+        />
+      </div>
+    </>
   );
 }
 
@@ -494,6 +647,7 @@ function ThreadPanel({
   showEmail: boolean;
   onClose: () => void;
 }) {
+  const { m, p } = useI18n();
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -513,7 +667,7 @@ function ThreadPanel({
       >
         <div className="min-w-0">
           <p className="text-[15px] font-black" style={{ color: "var(--slack-fg)" }}>
-            Fil de discussion
+            {m.thread.title}
           </p>
           <p className="truncate text-[11px]" style={{ color: "var(--slack-fg-muted)" }}>
             {channelName}
@@ -524,7 +678,8 @@ function ThreadPanel({
           size="icon-sm"
           className="ml-auto"
           onClick={onClose}
-          title="Fermer le fil (Échap)"
+          title={m.thread.close}
+          aria-label={m.thread.close}
         >
           <X />
         </Button>
@@ -550,7 +705,7 @@ function ThreadPanel({
               className="pr-3 text-[13px] font-bold"
               style={{ background: "var(--slack-bg)", color: "var(--slack-fg-muted)" }}
             >
-              {thread.replyCount} réponse{thread.replyCount > 1 ? "s" : ""}
+              {p(m.thread.replies, thread.replyCount)}
             </span>
           </div>
         </div>
@@ -592,18 +747,15 @@ function NamesDialog({
   candidates: string[];
   onSave: (next: Record<string, string>) => void;
 }) {
+  const { m } = useI18n();
   const [draft, setDraft] = React.useState<Record<string, string>>(overrides);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Noms des participants</DialogTitle>
-          <DialogDescription>
-            Les identifiants absents de l&apos;annuaire peuvent être nommés à la
-            main. Ces noms sont conservés dans ce navigateur et repris dans
-            l&apos;export HTML.
-          </DialogDescription>
+          <DialogTitle>{m.names.title}</DialogTitle>
+          <DialogDescription>{m.names.description}</DialogDescription>
         </DialogHeader>
 
         <datalist id="name-candidates">
@@ -635,7 +787,7 @@ function NamesDialog({
                   <p className="mt-1 truncate text-[11px] text-muted-foreground">
                     {id}
                     {directory[id]?.email ? ` · ${directory[id]?.email}` : ""}
-                    {directory[id] ? "" : " · non trouvé dans l'annuaire"}
+                    {directory[id] ? "" : ` · ${m.names.notInDirectory}`}
                   </p>
                 </div>
               </div>
@@ -645,7 +797,7 @@ function NamesDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
+            {m.common.cancel}
           </Button>
           <Button
             onClick={() => {
@@ -656,7 +808,7 @@ function NamesDialog({
               onOpenChange(false);
             }}
           >
-            Enregistrer
+            {m.common.save}
           </Button>
         </DialogFooter>
       </DialogContent>

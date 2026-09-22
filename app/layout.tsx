@@ -5,14 +5,16 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Slack JSON Viewer",
   description:
-    "Relisez un export JSON de conversation Slack avec l'interface d'origine, puis exportez-le en page HTML autonome.",
+    "Read a Slack conversation JSON export in Slack's own interface, then export it as a self-contained HTML page.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    // `lang` is a placeholder: the page picks its language in the browser
+    // (see `lib/i18n/react.tsx`) and updates this attribute.
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Lato is Slack's UI typeface. Loaded at runtime so the build stays
             offline-friendly; the system stack takes over if it is unavailable. */}

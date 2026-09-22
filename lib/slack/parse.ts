@@ -14,11 +14,19 @@ import { isBuiltinUser } from "./users";
 /*  Validation                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export class SlackParseError extends Error {}
+/** Why a file is not a conversation. The viewer words it in the active language. */
+export type SlackParseErrorCode = "notObject" | "noMessages" | "badMessages";
+
+export class SlackParseError extends Error {
+  constructor(readonly code: SlackParseErrorCode) {
+    super(code);
+    this.name = "SlackParseError";
+  }
+}
 
 export function parseConversation(input: unknown, fileName?: string): SlackConversation {
   if (!input || typeof input !== "object") {
-    throw new SlackParseError("Le fichier ne contient pas un objet JSON.");
+    throw new SlackParseError("notObject");
   }
 
   // Accept both `{ channel_id, name, messages }` and a bare array of messages.
@@ -35,9 +43,7 @@ export function parseConversation(input: unknown, fileName?: string): SlackConve
   const obj = input as Record<string, unknown>;
   const messages = obj.messages;
   if (!Array.isArray(messages)) {
-    throw new SlackParseError(
-      "Clé `messages` absente ou invalide : ce JSON n'est pas un export de conversation Slack."
-    );
+    throw new SlackParseError("noMessages");
   }
   assertMessages(messages as SlackMessage[]);
 
@@ -58,9 +64,7 @@ function assertMessages(messages: SlackMessage[]) {
   if (messages.length === 0) return;
   const sample = messages[0];
   if (!sample || typeof sample !== "object" || typeof sample.ts !== "string") {
-    throw new SlackParseError(
-      "Les messages n'ont pas le format attendu (clé `ts` manquante)."
-    );
+    throw new SlackParseError("badMessages");
   }
 }
 
@@ -369,52 +373,4 @@ export function normalizeMessages(
   return result;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Formatting                                                                 */
-/* -------------------------------------------------------------------------- */
-
-export const LOCALE = "fr-FR";
-
-const timeFmt = new Intl.DateTimeFormat(LOCALE, {
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const dayFmt = new Intl.DateTimeFormat(LOCALE, {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-const fullFmt = new Intl.DateTimeFormat(LOCALE, {
-  dateStyle: "full",
-  timeStyle: "medium",
-});
-
-export function formatTime(date: Date): string {
-  return timeFmt.format(date);
-}
-
-export function formatDay(date: Date): string {
-  const today = new Date();
-  const yesterday = new Date(today.getTime() - 86_400_000);
-  if (dayKey(date) === dayKey(today)) return "Aujourd'hui";
-  if (dayKey(date) === dayKey(yesterday)) return "Hier";
-  const label = dayFmt.format(date);
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-export function formatFull(date: Date): string {
-  return fullFmt.format(date);
-}
-
-const shortFmt = new Intl.DateTimeFormat(LOCALE, {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-export function formatDayShort(date: Date): string {
-  return shortFmt.format(date);
-}
+// Dates and numbers are formatted by `@/lib/i18n/format`, in the active language.

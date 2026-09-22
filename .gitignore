@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# slackdump QR auth helper (built on demand)
+/tools/qrauth/qrauth
+/tools/qrauth/qrauth.exe
