@@ -2,7 +2,10 @@
 
 import * as React from "react";
 import {
+  ArrowLeft,
+  Braces,
   Download,
+  FileCode2,
   Hash,
   Loader2,
   Lock,
@@ -18,6 +21,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { MessageList } from "@/components/slack/message-list";
 import { Sidebar } from "@/components/slack/sidebar";
+import { ConnectPanel } from "@/components/slack/connect-panel";
 import { DropZone } from "@/components/slack/drop-zone";
 import {
   buildMeta,
@@ -36,7 +46,13 @@ import {
   suggestUnknownNames,
 } from "@/lib/slack/parse";
 import { parseUserDirectory, resolveUser } from "@/lib/slack/users";
-import { buildStandaloneHtml, downloadHtml } from "@/lib/export/standalone";
+import {
+  buildStandaloneHtml,
+  downloadHtml,
+  downloadJson,
+} from "@/lib/export/standalone";
+import { fetchStatus } from "@/lib/slack/bridge-client";
+import type { BridgeStatus } from "@/lib/slack/bridge-types";
 import { Message } from "@/components/slack/message";
 import type {
   NormalizedMessage,
@@ -93,10 +109,24 @@ export function Viewer() {
   const [exporting, setExporting] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
 
+  // The connection panel lives here rather than in the drop zone, so it stays
+  // mounted once a conversation is open: reopening it lands back on the channel
+  // list, already loaded.
+  const [bridge, setBridge] = React.useState<BridgeStatus | null>(null);
+  const [connectOpen, setConnectOpen] = React.useState(false);
+
   const scrollRef = React.useRef<HTMLElement>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
 
   /* ---------------------------------------------------------------- state */
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    void fetchStatus(controller.signal).then((next) => {
+      if (!controller.signal.aborted) setBridge(next);
+    });
+    return () => controller.abort();
+  }, []);
 
   React.useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -225,6 +255,31 @@ export function Viewer() {
     }
   }, [meta, messages, directory, overrides, showEmail, dark, fileName]);
 
+  /**
+   * Going back means the channel list when the bridge is connected, and the
+   * home screen otherwise — in both cases, the place the conversation came
+   * from.
+   */
+  const backLabel = bridge?.available
+    ? "Retour aux conversations"
+    : "Fermer la conversation";
+
+  const handleBack = React.useCallback(() => {
+    if (bridge?.available) {
+      setConnectOpen(true);
+      return;
+    }
+    setConversation(null);
+    setThread(null);
+    setQuery("");
+    setAuthor(null);
+  }, [bridge]);
+
+  const handleExportJson = React.useCallback(() => {
+    if (!conversation) return;
+    downloadJson(`${fileName || "slack-conversation"}.json`, conversation);
+  }, [conversation, fileName]);
+
   const saveOverrides = React.useCallback((next: Record<string, string>) => {
     setOverrides(next);
     try {
@@ -236,14 +291,30 @@ export function Viewer() {
 
   /* --------------------------------------------------------------- views */
 
+  const connectPanel =
+    bridge?.available ? (
+      <ConnectPanel
+        open={connectOpen}
+        onOpenChange={setConnectOpen}
+        status={bridge}
+        onStatusChange={setBridge}
+        onFiles={handleFiles}
+      />
+    ) : null;
+
   if (!conversation || !meta) {
     return (
-      <DropZone
-        onFiles={handleFiles}
-        error={error}
-        directorySize={Object.keys(directory).length}
-        directoryName={directoryName}
-      />
+      <>
+        <DropZone
+          onFiles={handleFiles}
+          error={error}
+          directorySize={Object.keys(directory).length}
+          directoryName={directoryName}
+          bridge={bridge}
+          onConnect={() => setConnectOpen(true)}
+        />
+        {connectPanel}
+      </>
     );
   }
 
@@ -284,6 +355,17 @@ export function Viewer() {
           className="flex h-[49px] shrink-0 items-center gap-3 border-b px-4"
           style={{ borderColor: "var(--slack-border)" }}
         >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="-ml-1 shrink-0"
+            title={backLabel}
+            aria-label={backLabel}
+            onClick={handleBack}
+          >
+            <ArrowLeft />
+          </Button>
+
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
             {meta.kind === "channel" ? (
               <Hash className="size-4 shrink-0" style={{ color: "var(--slack-fg)" }} />
@@ -358,15 +440,34 @@ export function Viewer() {
             >
               <Upload />
             </Button>
-            <Button size="sm" variant="slack" onClick={handleExport} disabled={exporting}>
-              {exporting ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <Download />
-              )}
-              <span className="hidden lg:inline">Exporter en HTML</span>
-              <span className="lg:hidden">Exporter</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="slack" disabled={exporting}>
+                  {exporting ? <Loader2 className="animate-spin" /> : <Download />}
+                  <span>Exporter</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem onSelect={() => void handleExport()}>
+                  <FileCode2 />
+                  <div>
+                    <p className="font-medium">Page HTML autonome</p>
+                    <p className="text-xs text-muted-foreground">
+                      Un seul fichier, cliquable hors ligne
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExportJson}>
+                  <Braces />
+                  <div>
+                    <p className="font-medium">JSON de la conversation</p>
+                    <p className="text-xs text-muted-foreground">
+                      Les données brutes, rechargeables ici
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <input
               ref={fileInput}
               type="file"
@@ -469,6 +570,8 @@ export function Viewer() {
         candidates={unknown.candidates}
         onSave={saveOverrides}
       />
+
+      {connectPanel}
     </div>
   );
 }

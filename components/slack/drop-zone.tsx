@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Upload, Users } from "lucide-react";
+import { Plug, Upload, Users } from "lucide-react";
 
 import { GithubLink, ReadmeLink } from "@/components/slack/github-link";
 import { Button } from "@/components/ui/button";
+import type { BridgeStatus } from "@/lib/slack/bridge-types";
 import { cn } from "@/lib/utils";
 
 export interface DropZoneProps {
@@ -13,6 +14,9 @@ export interface DropZoneProps {
   error?: string | null;
   directorySize: number;
   directoryName?: string | null;
+  /** null while the probe is in flight, or when the bridge is unavailable. */
+  bridge: BridgeStatus | null;
+  onConnect: () => void;
 }
 
 export function DropZone({
@@ -20,6 +24,8 @@ export function DropZone({
   error,
   directorySize,
   directoryName,
+  bridge,
+  onConnect,
 }: DropZoneProps) {
   const [dragging, setDragging] = React.useState(false);
   const conversationInput = React.useRef<HTMLInputElement>(null);
@@ -107,7 +113,7 @@ export function DropZone({
                   ? `${directorySize.toLocaleString("fr-FR")} membres chargés${
                       directoryName ? ` · ${directoryName}` : ""
                     }`
-                  : "Optionnel — le fichier .txt produit par « slackdump list users »"}
+                  : "Optionnel — un users.json, ou le fichier .txt d'un export Slack"}
               </p>
             </div>
           </div>
@@ -130,9 +136,28 @@ export function DropZone({
           />
         </div>
 
+        {bridge?.available ? (
+          <div className="mt-3 flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Plug className="size-4 text-muted-foreground" />
+              <div className="text-sm">
+                <p className="font-medium">Se connecter directement à Slack</p>
+                <p className="text-xs text-muted-foreground">
+                  {bridge.workspaces.length > 0
+                    ? `Connecté · ${bridge.workspaces.join(", ")}`
+                    : "Jeton et cookie, ou QR code"}
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={onConnect}>
+              Connecter
+            </Button>
+          </div>
+        ) : null}
+
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Tout est traité dans votre navigateur : aucun fichier n&apos;est envoyé
-          sur un serveur.
+          Les fichiers déposés restent dans votre navigateur. La connexion à
+          Slack, elle, passe par le serveur qui héberge cette page.
         </p>
 
         <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground/70">
@@ -141,6 +166,7 @@ export function DropZone({
           <GithubLink className="hover:text-foreground" />
         </div>
       </div>
+
     </div>
   );
 }

@@ -331,8 +331,7 @@ ${body}
 </html>`;
 }
 
-export function downloadHtml(fileName: string, html: string) {
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+function download(fileName: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -341,4 +340,16 @@ export function downloadHtml(fileName: string, html: string) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+export function downloadHtml(fileName: string, html: string) {
+  download(fileName, new Blob([html], { type: "text/html;charset=utf-8" }));
+}
+
+/** The conversation as JSON — indented, and reloadable by this viewer. */
+export function downloadJson(fileName: string, value: unknown) {
+  download(
+    fileName,
+    new Blob([JSON.stringify(value, null, 2)], { type: "application/json;charset=utf-8" }),
+  );
 }

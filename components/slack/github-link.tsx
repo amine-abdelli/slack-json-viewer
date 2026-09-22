@@ -4,7 +4,7 @@ import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const GITHUB_URL = "https://github.com/amine-abdelli";
-/** Section « Preparing the sources » du README (slackdump). */
+/** Section « Preparing the sources » du README. */
 const README_URL =
   "https://github.com/amine-abdelli/slack-json-viewer#preparing-the-sources";
 
@@ -48,7 +48,7 @@ export function ReadmeLink({ className }: { className?: string }) {
       href={README_URL}
       target="_blank"
       rel="noopener noreferrer"
-      title="Comment archiver une conversation Slack (slackdump) — README du projet"
+      title="Comment archiver une conversation Slack — README du projet"
       className={cn(
         "inline-flex items-center gap-1.5 transition-opacity hover:opacity-100",
         className
