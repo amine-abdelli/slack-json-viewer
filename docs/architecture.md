@@ -1,27 +1,29 @@
 # Architecture
 
-Slack JSON Viewer has two halves that share one screen:
+Loquarium (formerly Slack JSON Viewer) has two halves:
 
-- **The viewer** reads a Slack conversation and renders it in Slack's own look,
-  then exports it as a self-contained HTML page or as JSON. It runs entirely in
-  the browser: a file you drop never leaves it.
+- **The app** imports Slack conversations into a local library, renders them
+  faithfully, and exports them as a self-contained HTML page or as JSON. It
+  runs entirely in the browser: conversations are stored in IndexedDB, and a
+  file you open never leaves the browser.
 - **The bridge** fetches conversations straight from Slack, so there is nothing
   to export by hand. It is a handful of Next.js route handlers calling the
   [Slack Web API](https://api.slack.com/methods). It is optional — the viewer
   works without it.
 
-The bridge hands its results to the viewer as if they were dropped files, so
-everything downstream of loading — parsing, rendering, export — has exactly one
-code path.
+Whatever the source — the bridge or an opened file — a conversation goes
+through the same `parseConversation`, lands in the same library, and is rendered
+and exported by the same components.
 
 ```mermaid
 flowchart LR
   subgraph Browser
-    DZ[DropZone] -- files --> V[Viewer]
-    CP[ConnectPanel] -- synthesised File objects --> V
-    V --> P[parse.ts<br/>flatten · normalise · group]
+    F[Opened / dropped files] --> IV[ImportView<br/>the wizard]
+    IV --> L[("Library<br/>IndexedDB")]
+    L --> AV[ArchiveView]
+    AV --> P[parse.ts<br/>flatten · normalise · group]
     P --> ML[MessageList]
-    V -- export --> X[HTML page / JSON file]
+    AV -- export sheet --> X[HTML page / JSON file]
   end
 
   subgraph Server["Next.js route handlers"]
@@ -34,7 +36,7 @@ flowchart LR
     B -. QR login only .-> Q[tools/qrauth]
   end
 
-  CP -- "NDJSON over POST" --> RUN
+  IV -- "NDJSON over POST" --> RUN
   API --> S[(Slack Web API)]
   Q --> C[Chromium] --> S
 ```
@@ -43,17 +45,22 @@ flowchart LR
 
 | Path | Responsibility |
 | --- | --- |
-| `app/page.tsx`, `app/layout.tsx` | Entry point; mounts the viewer |
-| `app/globals.css` | Slack design tokens, light and dark palettes, grouping rules |
-| `app/api/slack/{status,run,logout}/route.ts` | The bridge's HTTP surface |
-| `components/slack/viewer-client.tsx` | Mounts the viewer client-side only (`ssr: false`), since its initial state reads `localStorage` |
-| `components/slack/viewer.tsx` | Global state: conversation, directory, search, author filter, theme, thread panel, export, and the connection panel |
-| `components/slack/drop-zone.tsx` | Home screen: drag and drop, file picker, directory picker, *Connecter* entry point |
-| `components/slack/connect-panel.tsx` | Sign in → pick a conversation → fetch, with live progress |
+| `app/page.tsx`, `app/layout.tsx` | Entry point; mounts the app; loads IBM Plex and Lato |
+| `app/globals.css` | Loquarium tokens (light / dark), aliases for shadcn and the former `--slack-*` names, reading-surface rules (grouping, threads) |
+| `app/api/slack/{status,run,logout,qr-input}/route.ts` | The bridge's HTTP surface |
+| `components/slack/viewer-client.tsx` | Mounts the app client-side only (`ssr: false`), since its initial state reads `localStorage` and IndexedDB |
+| `components/app/app.tsx` | Shell (rail, header, breadcrumbs, drop overlay) and shared state: library, directory, names, preferences, bridge status, routing |
+| `components/app/library-view.tsx` | Library: empty state, recently opened, archives table |
+| `components/app/import-view.tsx` | Import wizard: source → Slack sign-in (live view) → conversations → progress → done; files → directory → done |
+| `components/app/archive-view.tsx` | Archive: navigator, conversation, thread panel, keyboard shortcuts |
+| `components/app/people-view.tsx` | People tab: who wrote, where their name comes from, inline naming |
+| `components/app/export-sheet.tsx`, `exports-view.tsx` | Export side sheet and export history |
+| `components/app/settings-view.tsx` | Preferences, data on this device, Slack connections |
+| `components/app/ui.tsx` | Small building blocks from the design system (search field, segmented control, checkbox, switch, banners, buttons) |
+| `components/slack/qr-live-view.tsx` | The QR sign-in's live browser view |
 | `components/slack/message-list.tsx`, `message.tsx` | Message, reactions, attachments, files, huddles, thread bar, day divider |
 | `components/slack/rich-text.tsx` | `rich_text` blocks, with an `mrkdwn` fallback and search highlighting |
-| `components/slack/sidebar.tsx` | Aubergine sidebar; the member list doubles as the author filter |
-| `components/slack/language-switcher.tsx` | Language menu, on the home screen and in the conversation header |
+| `components/slack/language-switcher.tsx` | Language menu, in the header and in Settings |
 | `components/ui/*` | shadcn/ui primitives |
 | `lib/slack/types.ts` | Shapes of the Slack data the viewer consumes |
 | `lib/slack/parse.ts` | Parsing, thread flattening, normalisation, grouping, formatting |
@@ -62,6 +69,10 @@ flowchart LR
 | `lib/slack/bridge-types.ts` | Types shared by the bridge routes and the panel — no Node imports |
 | `lib/slack/bridge-client.ts` | Browser-side client for `/api/slack/*` |
 | `lib/export/standalone.tsx` | Standalone HTML export; download helpers |
+| `lib/library/store.ts`, `summary.ts` | The library in IndexedDB (in memory when unavailable); conversation summaries and titles |
+| `lib/app/route.ts` | Hash routes: `#/library`, `#/import`, `#/archive/<id>/<conversation>[/people]`, `#/exports`, `#/settings` |
+| `lib/app/files.ts` | Sorts opened files into conversations, directories and errors |
+| `lib/app/exports-history.ts` | Export history in `localStorage` |
 | `lib/i18n/` | Languages: detection, catalogues, formatting, React provider, server side |
 | `lib/server/slack.ts` | The bridge: validation, sign-in, listing, dumping, resolving |
 | `lib/server/slack-api.ts` | Slack Web API client: transport, pagination, rate limits, dump |
@@ -72,10 +83,10 @@ flowchart LR
 
 ## The viewer
 
-### Loading
+### Loading and the library
 
-Everything enters through `handleFiles` in `viewer.tsx`, whether the files come
-from a drop, the file picker, or the bridge. For each file:
+Files enter through `readFiles` (`lib/app/files.ts`), whether they are dropped
+anywhere on the app or picked from the import wizard. For each file:
 
 1. If it looks like JSON, `parseConversation` tries to read it as a
    conversation: either `{ channel_id, name, messages }` or a bare array of
@@ -86,9 +97,15 @@ from a drop, the file picker, or the bridge. For each file:
    e-mail column.
 3. Anything else produces an error naming the file.
 
-The directory, its file name, the manual name overrides and the display
-preferences are persisted in `localStorage` under the `slack-viewer:*` keys.
-The conversation itself is not persisted.
+Conversations are saved with `saveConversations` into an **archive**: one per
+Slack workspace (`slack:<workspace>`), plus one for local files (`files`). The
+archive record holds a summary of each conversation (kind, counts, period,
+participants, size, last opened); the conversation itself is stored separately
+and read only when it is opened. Importing a conversation again replaces it.
+
+Directories are **merged** into the one already known (a newer entry wins). The
+directory, the manual names and the display preferences stay in `localStorage`
+under the `slack-viewer:*` keys; the export history under `loquarium:exports`.
 
 ### Normalisation
 
@@ -131,12 +148,14 @@ page clones that hidden node into its own panel.
 `resolveUser` looks an ID up in the directory, then in the manual overrides,
 then among built-ins (`USLACKBOT`); unknown IDs render as the raw ID with an
 *unresolved* badge and a deterministic avatar colour. The banner above the list
-counts unknown IDs and opens a dialog to name them, pre-filled with suggestions
-taken from an `mpdm-…` channel name.
+counts unknown IDs and opens the **People** tab, where they can be named inline,
+with suggestions taken from an `mpdm-…` channel name.
 
 ### Export
 
-The header's **Exporter** menu offers two formats.
+The header's **Export** button opens a side sheet with two formats (PDF and
+the evidence pack are shown as coming soon). Every export is recorded in the
+Exports screen.
 
 **HTML page** (`buildStandaloneHtml`). The same `MessageList` component is
 rendered with `renderToStaticMarkup`, every same-origin stylesheet of the live
@@ -151,20 +170,13 @@ the viewer as is. The user directory is not included: it lives in
 
 ### Navigation
 
-The back arrow at the left of the header goes back where the conversation came
-from: to the channel list when the bridge is available, and to the home screen
-otherwise. The browser's own back button does the same: while a conversation is
-on screen, one history entry is pushed, and popping it runs the same code; the
-arrow pops that entry too, so the two never disagree.
+Screens live in the URL hash (`lib/app/route.ts`), so the browser's back and
+forward buttons move between them and a reload stays put. The header's back
+arrow goes to the previous breadcrumb. In an archive, `⌘K` focuses the
+conversation filter, `⌘F` the search, and `Esc` closes the thread panel.
 
-Landing back on the list, rather than on the sign-in step, relies on the panel
-never remounting. `viewer.tsx` renders `ConnectPanel` **first, in both
-branches** — home screen and conversation — so React keeps the same instance,
-with its step, its channels and its filter. Rendering it at a different place in
-each branch silently resets it. Because the dialog now reopens without
-remounting, its content sits one z-index above its overlay
-(`components/ui/dialog.tsx`): Radix portals the two separately, and the overlay
-can otherwise end up covering the content.
+The import wizard keeps its steps in its own state: going back to a step keeps
+the channel list and the selection.
 
 ## Languages
 
@@ -314,11 +326,11 @@ serve.
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant P as ConnectPanel
+  participant P as ImportView
   participant R as /api/slack/run
   participant A as slack-api.ts
   participant S as Slack
-  participant V as Viewer
+  participant V as Library
 
   U->>P: pick a conversation
   P->>R: { action: "dump", channel }
@@ -332,21 +344,22 @@ sequenceDiagram
     A->>S: conversations.replies
   end
   R-->>P: done { channel_id, name, messages }
-  P->>P: collectUserIds(conversation)
+  P->>V: saveConversations (one per conversation, as it arrives)
+  P->>P: collectUserIds (all selected conversations)
   P->>R: { action: "resolve-users", userIds }
   loop each ID, 8 at a time
     A->>S: users.info
   end
   R-->>P: done [users]
-  P->>V: onFiles([users.json, <channel>.json])
-  V->>V: parseUserDirectory, parseConversation, normalizeMessages
+  P->>P: parseUserDirectory → merged into the directory
 ```
 
 `collectUserIds` scans the dump for quoted IDs — authors, reaction voters,
 `reply_users`, `user_id` in rich-text blocks, `bot_id` — and for `<@U…>` /
-`<@U…|label>` mentions, which only appear inside message text. The directory
-file is handed over first, so the conversation renders with names on the first
-paint.
+`<@U…|label>` mentions, which only appear inside message text. Several
+conversations are imported one after another; the people of all of them are
+resolved in a single pass at the end. A conversation that fails pauses the
+import with *Retry* / *Skip*; cancelling keeps what was already saved.
 
 ## Sessions and credentials
 

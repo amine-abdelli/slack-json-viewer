@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+<meta name="ext-resource-dependency" content="./Loquarium App.dc.html" data-resource-id="./Loquarium%20App.dc.html">
+<meta name="ext-resource-dependency" content="./Loquarium Message.dc.html" data-resource-id="./Loquarium%20Message.dc.html">
+<meta name="ext-resource-dependency" content="./Loquarium Components.dc.html" data-resource-id="./Loquarium%20Components.dc.html">
+<meta name="ext-resource-dependency" content="./Loquarium Export Page.dc.html" data-resource-id="./Loquarium%20Export%20Page.dc.html">
+<meta name="ext-resource-dependency" content="loquarium-data.js" data-resource-id="loquarium-data.js">
+<meta name="ext-resource-dependency" content="loquarium-tokens.css" data-resource-id="loquarium-tokens.css">
+<template id="__bundler_thumbnail" data-bg-color="#4b3f72"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#4b3f72"/><rect x="480" y="280" width="240" height="240" rx="48" fill="#ffffff"/><text x="600" y="455" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="170" font-weight="600" fill="#4b3f72">L</text></svg></template>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="loquarium-tokens.css">
+<style>body{margin:0;background:#e8eaee;-webkit-font-smoothing:antialiased}a{color:#4b3f72}a:hover{color:#3d335f}</style>
+</helmet>
+<div style="font-family:var(--font-app);color:#121419;padding:56px 64px 96px;display:flex;flex-direction:column;gap:72px;width:2280px;box-sizing:border-box">
+
+  <header style="display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:12px"><span style="width:40px;height:40px;border-radius:9px;background:#4b3f72;color:#fff;display:grid;place-items:center;font:600 20px var(--font-app)">L</span><span style="font:500 14px var(--font-mono);color:#5f6773">Loquarium · système et écrans · v1</span></div>
+      <h1 style="margin:0;font:600 56px/1.05 var(--font-app);letter-spacing:-.02em;max-width:900px">Un outil d’archives calme et précis, autour d’une lecture fidèle à Slack.</h1>
+      <p style="margin:0;font-size:18px;line-height:1.55;color:#434a55;max-width:820px;text-wrap:pretty">Deux couches : l’application (gris froids, un seul accent indigo, IBM Plex) et la conversation (densité, regroupement et pastilles de Slack, en Lato). Tout ce qui suit est construit à partir des mêmes composants et variables CSS que le prototype.</p>
+      <div style="display:flex;gap:10px;margin-top:6px"><a href="Loquarium App.dc.html" style="height:40px;display:inline-flex;align-items:center;gap:8px;padding:0 18px;border-radius:6px;background:#4b3f72;color:#fff;font:500 14px var(--font-app);text-decoration:none">Ouvrir le prototype<i class="icon-arrow-right" style="font-size:15px"></i></a><a href="Loquarium Export Page.dc.html" style="height:40px;display:inline-flex;align-items:center;gap:8px;padding:0 18px;border-radius:6px;border:1px solid #c7ccd5;background:#fff;color:#121419;font:500 14px var(--font-app);text-decoration:none">Page exportée (destinataire)</a></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:24px 28px;display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.55;color:#434a55">
+      <div style="font:600 13px var(--font-app);color:#121419">Hypothèses de cette passe</div>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">
+        <li>Maquettes en français ; mises en page testées pour des libellés 30–40 % plus longs (RU/ES) : aucun libellé important n’est tronqué sans infobulle.</li>
+        <li>Accent #4B3F72 réservé à l’action principale, à la sélection et au focus. Le cadre reste gris : rien ne rappelle le violet aubergine de Slack.</li>
+        <li>Méthodes de connexion : code QR (URL de l’image + espace) et connexion Slack (avec navigateur SSO). Les textes d’aide sont provisoires.</li>
+        <li>Pas encore couverts : Réglages, écran d’offre (paywall), états système détaillés, diagramme de parcours.</li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- TOKENS -->
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">01</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Couleurs</h2><span style="font-size:14px;color:#5f6773">Variables CSS, clair et sombre · contraste AA vérifié sur le texte</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
+      <sc-for list="{{ tokenGroups }}" as="grp" hint-placeholder-count="2">
+        <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 150px 150px minmax(0,1.4fr);gap:16px;padding:12px 20px;background:#f4f5f7;border-bottom:1px solid #e0e3e9;font:600 12px var(--font-app);color:#434a55"><span>{{ grp.title }}</span><span>Clair</span><span>Sombre</span><span>Usage</span></div>
+          <sc-for list="{{ grp.items }}" as="t">
+            <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 150px 150px minmax(0,1.4fr);gap:16px;padding:8px 20px;border-bottom:1px solid #eef0f3;align-items:center;font-size:13px">
+              <span style="font:12.5px var(--font-mono)">{{ t.name }}</span>
+              <span style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:22px;border-radius:4px;background:{{ t.l }};border:1px solid rgba(0,0,0,.1)"></span><span style="font:11.5px var(--font-mono);color:#5f6773">{{ t.l }}</span></span>
+              <span style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:22px;border-radius:4px;background:{{ t.d }};border:1px solid rgba(0,0,0,.1)"></span><span style="font:11.5px var(--font-mono);color:#5f6773">{{ t.d }}</span></span>
+              <span style="color:#434a55">{{ t.use }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- TYPE + FOUNDATIONS -->
+  <section style="display:grid;grid-template-columns:1.4fr 1fr;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">02</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Typographie</h2></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+        <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:20px"><div style="font:600 40px var(--font-app)">Aa</div><div style="font:600 15px var(--font-app);margin-top:8px">IBM Plex Sans</div><div style="font-size:13px;color:#5f6773;margin-top:4px">Application : cadre, formulaires, tableaux. Latin + cyrillique ; repli Noto Sans SC pour le chinois.</div></div>
+        <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:20px"><div style="font:900 40px var(--font-read)">Aa</div><div style="font:700 15px var(--font-read);margin-top:8px">Lato</div><div style="font-size:13px;color:#5f6773;margin-top:4px">Lecture des conversations : même gris typographique que Slack, pour une reconnaissance immédiate.</div></div>
+        <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:20px"><div style="font:500 40px var(--font-mono)">Aa</div><div style="font:500 15px var(--font-mono);margin-top:8px">IBM Plex Mono</div><div style="font-size:13px;color:#5f6773;margin-top:4px">Identifiants (C0AE23W6W0J), domaines, code, noms de fichiers, détails d’erreur.</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;overflow:hidden">
+        <sc-for list="{{ typeScale }}" as="t">
+          <div style="display:grid;grid-template-columns:180px 1fr 220px;gap:20px;align-items:baseline;padding:12px 20px;border-bottom:1px solid #eef0f3">
+            <span style="font:12px var(--font-mono);color:#5f6773">{{ t.name }}</span>
+            <span style="font:{{ t.font }};color:#121419;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.sample }}</span>
+            <span style="font:12px var(--font-mono);color:#5f6773">{{ t.spec }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">03</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Fondations</h2></div>
+      <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="font:600 13px var(--font-app)">Espacement · base 4</div>
+        <div style="display:flex;align-items:flex-end;gap:14px"><sc-for list="{{ spaces }}" as="s"><div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:{{ s.px }};height:{{ s.px }};background:#edeaf5;border:1px solid #c9c1e0"></span><span style="font:11px var(--font-mono);color:#5f6773">{{ s.n }}</span></div></sc-for></div>
+        <div style="font:600 13px var(--font-app);margin-top:6px">Rayons</div>
+        <div style="display:flex;gap:14px"><sc-for list="{{ radii }}" as="r"><div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:56px;height:40px;background:#f0f2f5;border:1px solid #c7ccd5;border-radius:{{ r.px }}"></span><span style="font:11px var(--font-mono);color:#5f6773">{{ r.n }}</span></div></sc-for></div>
+        <div style="font:600 13px var(--font-app);margin-top:6px">Ombres</div>
+        <div style="display:flex;gap:18px;padding:8px 0"><sc-for list="{{ shadows }}" as="s"><div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="width:88px;height:56px;background:#fff;border-radius:8px;box-shadow:{{ s.v }}"></span><span style="font:11px var(--font-mono);color:#5f6773">{{ s.n }}</span></div></sc-for></div>
+        <div style="font:600 13px var(--font-app);margin-top:6px">Icônes · lucide-react, trait 2, 14–19 px</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;color:#434a55;font-size:19px"><i class="icon-library"></i><i class="icon-import"></i><i class="icon-file-output"></i><i class="icon-settings"></i><i class="icon-hash"></i><i class="icon-lock"></i><i class="icon-user"></i><i class="icon-users"></i><i class="icon-search"></i><i class="icon-at-sign"></i><i class="icon-moon"></i><i class="icon-globe"></i><i class="icon-languages"></i><i class="icon-hard-drive"></i><i class="icon-shield-check"></i><i class="icon-pencil"></i><i class="icon-plug"></i><i class="icon-qr-code"></i></div>
+        <div style="font-size:12.5px;color:#5f6773">Icône seule = toujours un aria-label et une infobulle. Jamais d’icône décorative à côté d’un titre.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPONENTS -->
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">04</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Composants</h2><span style="font-size:14px;color:#5f6773">Button, Input, Checkbox, Switch, Tabs, Badge, Banner, Toast, Progress, DropdownMenu, Tooltip, Sheet</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start">
+      <div style="border-radius:12px;overflow:hidden;border:1px solid #d6d9df"><dc-import name="Loquarium Components" theme="light" hint-size="100%,860px"></dc-import></div>
+      <div style="border-radius:12px;overflow:hidden;border:1px solid #d6d9df"><dc-import name="Loquarium Components" theme="dark" hint-size="100%,860px"></dc-import></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:0;overflow:hidden">
+      <div style="padding:14px 20px;border-bottom:1px solid #e0e3e9;font:600 13px var(--font-app)">Rendu des messages · toutes les variantes (clair / sombre)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr">
+        <div style="height:980px"><dc-import name="Loquarium App" embedded="{{ true }}" screen="archive" device="phone" mobile-pane="conv" unknown-dismissed="{{ true }}" hint-size="100%,980px" style="width:100%;height:980px"></dc-import></div>
+        <div style="height:980px;border-left:1px solid #e0e3e9"><dc-import name="Loquarium App" embedded="{{ true }}" screen="archive" device="phone" mobile-pane="conv" theme="dark" show-email="{{ true }}" unknown-dismissed="{{ true }}" hint-size="100%,980px" style="width:100%;height:980px"></dc-import></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREENS -->
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">05</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Écrans</h2><span style="font-size:14px;color:#5f6773">1440 × 900 affichés à 50 % · chaque vignette est le prototype réel figé dans un état</span></div>
+
+    <h3 style="margin:8px 0 0;font:600 18px var(--font-app)">Connexion · avant authentification</h3>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">S1</b>Connexion · clair</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" screen="signin" device="desktop" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">S2</b>Connexion · sombre</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" screen="signin" device="desktop" theme="dark" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">S3</b>Lien envoyé</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" screen="signin" auth-step="sent" device="desktop" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">S4</b>Téléphone</figcaption><div style="width:253px;height:548px;overflow:hidden;border-radius:18px;border:6px solid #1b1e24;box-sizing:content-box"><div style="width:390px;height:844px;transform:scale(.65);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" screen="signin" device="phone" hint-size="390px,844px" style="width:390px;height:844px"></dc-import></div></div></figure>
+    </div>
+
+    <h3 style="margin:24px 0 0;font:600 18px var(--font-app)">Bibliothèque</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,720px);gap:28px 32px">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">A1</b>Bibliothèque · clair</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" screen="library" device="desktop" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">A2</b>Bibliothèque · sombre</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" screen="library" device="desktop" theme="dark" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">A3</b>Bibliothèque vide · invitation à connecter Slack</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" screen="library" device="desktop" empty="{{ true }}" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+    </div>
+
+    <h3 style="margin:24px 0 0;font:600 18px var(--font-app)">Import · parcours Slack</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,720px);gap:28px 32px">
+      <sc-for list="{{ importFrames }}" as="f" hint-placeholder-count="12">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">{{ f.id }}</b>{{ f.label }}</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" device="desktop" screen="import" theme="{{ f.theme }}" import-step="{{ f.step }}" import-path="{{ f.path }}" signin="{{ f.signin }}" method="{{ f.method }}" qr-url="{{ f.qr }}" sso-focus="{{ f.focus }}" chq="{{ f.chq }}" member-only="{{ f.mo }}" proc="{{ f.proc }}" proc-error="{{ f.err }}" dir-state="{{ f.dir }}" file-error="{{ f.fileErr }}" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+      </sc-for>
+    </div>
+
+    <h3 style="margin:24px 0 0;font:600 18px var(--font-app)">Archive · conversation, fil, recherche, personnes, export</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,720px);gap:28px 32px">
+      <sc-for list="{{ archiveFrames }}" as="f" hint-placeholder-count="15">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">{{ f.id }}</b>{{ f.label }}</figcaption><div style="width:720px;height:450px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1440px;height:900px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" device="desktop" screen="{{ f.screen }}" theme="{{ f.theme }}" conv="{{ f.conv }}" q="{{ f.q }}" author="{{ f.author }}" thread="{{ f.thread }}" show-email="{{ f.email }}" export-open="{{ f.ex }}" export-fmt="{{ f.fmt }}" export-state="{{ f.es }}" archive-tab="{{ f.tab }}" editing="{{ f.editing }}" drop="{{ f.drop }}" err-banner="{{ f.errB }}" unknown-dismissed="{{ f.ud }}" hint-size="1440px,900px" style="width:1440px;height:900px"></dc-import></div></div></figure>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- EXPORTED PAGE -->
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">06</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Page HTML exportée</h2><span style="font-size:14px;color:#5f6773">Ouverte hors ligne par le destinataire · même rendu, sans le cadre de l’application</span></div>
+    <div style="display:flex;gap:32px;align-items:flex-start">
+      <div style="display:grid;grid-template-columns:repeat(2,640px);gap:28px 32px">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">E1</b>Page exportée · clair</figcaption><div style="width:640px;height:400px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1280px;height:800px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium Export Page" embedded="{{ true }}" hint-size="1280px,800px" style="width:1280px;height:800px"></dc-import></div></div></figure>
+        <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">E2</b>Sombre · fil ouvert</figcaption><div style="width:640px;height:400px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1280px;height:800px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium Export Page" embedded="{{ true }}" theme="dark" thread="T1" hint-size="1280px,800px" style="width:1280px;height:800px"></dc-import></div></div></figure>
+        <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">E3</b>Recherche « huddle »</figcaption><div style="width:640px;height:400px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1280px;height:800px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium Export Page" embedded="{{ true }}" q="huddle" hint-size="1280px,800px" style="width:1280px;height:800px"></dc-import></div></div></figure>
+        <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">E4</b>Filtré : Inès Haddad</figcaption><div style="width:640px;height:400px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df;background:#fff"><div style="width:1280px;height:800px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium Export Page" embedded="{{ true }}" author="U03" hint-size="1280px,800px" style="width:1280px;height:800px"></dc-import></div></div></figure>
+      </div>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">E5</b>Impression · A4, sans barre d’outils, messages jamais coupés</figcaption><div style="width:430px;height:1195px;overflow:hidden;border-radius:8px;border:1px solid #d6d9df"><div style="width:860px;height:2390px;transform:scale(.5);transform-origin:0 0"><dc-import name="Loquarium Export Page" embedded="{{ true }}" print="{{ true }}" hint-size="860px,2390px" style="width:860px;height:2390px"></dc-import></div></div></figure>
+    </div>
+  </section>
+
+  <!-- RESPONSIVE -->
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">07</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Tablette et téléphone</h2><span style="font-size:14px;color:#5f6773">Même composant, trois dispositions : rail + navigateur + fil ancré → fil en surimpression → une colonne à la fois</span></div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+      <sc-for list="{{ phoneFrames }}" as="f" hint-placeholder-count="5">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">{{ f.id }}</b>{{ f.label }}</figcaption><div style="width:390px;height:844px;overflow:hidden;border-radius:28px;border:8px solid #1b1e24;background:#fff;box-sizing:content-box"><dc-import name="Loquarium App" embedded="{{ true }}" device="phone" screen="{{ f.screen }}" theme="{{ f.theme }}" mobile-pane="{{ f.pane }}" thread="{{ f.thread }}" author="{{ f.author }}" export-open="{{ f.ex }}" hint-size="390px,844px" style="width:390px;height:844px"></dc-import></div></figure>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">R6</b>Tablette · bibliothèque</figcaption><div style="width:615px;height:885px;overflow:hidden;border-radius:20px;border:8px solid #1b1e24;box-sizing:content-box"><div style="width:820px;height:1180px;transform:scale(.75);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" device="tablet" screen="library" hint-size="820px,1180px" style="width:820px;height:1180px"></dc-import></div></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">R7</b>Tablette · navigateur + conversation</figcaption><div style="width:615px;height:885px;overflow:hidden;border-radius:20px;border:8px solid #1b1e24;box-sizing:content-box"><div style="width:820px;height:1180px;transform:scale(.75);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" device="tablet" screen="archive" unknown-dismissed="{{ true }}" hint-size="820px,1180px" style="width:820px;height:1180px"></dc-import></div></div></figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px"><figcaption style="font-size:13px;color:#434a55"><b style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:#121419;color:#fff;margin-right:8px">R8</b>Tablette · fil en surimpression, sombre</figcaption><div style="width:615px;height:885px;overflow:hidden;border-radius:20px;border:8px solid #1b1e24;box-sizing:content-box"><div style="width:820px;height:1180px;transform:scale(.75);transform-origin:0 0"><dc-import name="Loquarium App" embedded="{{ true }}" device="tablet" screen="archive" theme="dark" thread="T1" hint-size="820px,1180px" style="width:820px;height:1180px"></dc-import></div></div></figure>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <section style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">08</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Interactions</h2></div>
+      <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;overflow:hidden">
+        <sc-for list="{{ notes }}" as="n">
+          <div style="display:grid;grid-template-columns:220px 1fr;gap:20px;padding:14px 22px;border-bottom:1px solid #eef0f3;font-size:14px;line-height:1.55"><span style="font-weight:600">{{ n.k }}</span><span style="color:#434a55;text-wrap:pretty">{{ n.v }}</span></div>
+        </sc-for>
+      </div>
+      <div style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:18px 22px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+        <sc-for list="{{ keys }}" as="k"><div style="display:flex;flex-direction:column;gap:6px"><kbd style="align-self:flex-start;font:500 13px var(--font-mono);padding:3px 8px;border:1px solid #c7ccd5;border-bottom-width:2px;border-radius:5px;background:#f4f5f7">{{ k.k }}</kbd><span style="font-size:13px;color:#434a55">{{ k.v }}</span></div></sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 13px var(--font-mono);color:#5f6773">09</span><h2 style="margin:0;font:600 30px var(--font-app);letter-spacing:-.01em">Recommandations</h2></div>
+      <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ recos }}" as="r">
+          <li style="background:#fff;border:1px solid #e0e3e9;border-radius:12px;padding:16px 22px;display:grid;grid-template-columns:36px 1fr;gap:12px"><span style="font:600 13px var(--font-mono);color:#4b3f72">{{ r.n }}</span><span><b style="display:block;font-weight:600;font-size:15px">{{ r.t }}</b><span style="display:block;margin-top:4px;font-size:14px;line-height:1.55;color:#434a55;text-wrap:pretty">{{ r.d }}</span></span></li>
+        </sc-for>
+      </ol>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const T = (name, l, d, use) => ({ name, l, d, use });
+    const imp = (id, label, o) => ({ id, label, theme: 'light', step: 1, path: 'slack', signin: 'connected', method: 'qr', qr: '', focus: false, chq: '', mo: true, proc: 12, err: false, dir: 'detected', fileErr: false, ...o });
+    const arc = (id, label, o) => ({ id, label, screen: 'archive', theme: 'light', conv: 'C04PL7K2QXA', q: '', author: null, thread: null, email: false, ex: false, fmt: 'html', es: 'idle', tab: 'conv', editing: null, drop: false, errB: false, ud: false, ...o });
+    const ph = (id, label, o) => ({ id, label, screen: 'archive', theme: 'light', pane: 'nav', thread: null, author: null, ex: false, ...o });
+    return {
+      tokenGroups: [
+        { title: 'Application', items: [T('--bg', '#f4f5f7', '#0d0f13', 'Fond de l’application'), T('--surface', '#ffffff', '#14171c', 'Barres, cartes, feuilles'), T('--surface-2', '#f0f2f5', '#1a1e24', 'Survol, champs, en-têtes de tableau'), T('--border', '#e0e3e9', '#252a32', 'Séparateurs'), T('--border-strong', '#c7ccd5', '#363c47', 'Contours de champs et boutons secondaires'), T('--text', '#121419', '#e8eaee', 'Texte principal'), T('--text-2', '#434a55', '#b3b9c3', 'Texte secondaire'), T('--text-3', '#5f6773', '#8e96a2', 'Métadonnées (≥ 4,5:1)'), T('--accent', '#4b3f72', '#a194da', 'Action principale, sélection'), T('--accent-soft', '#edeaf5', '#241f36', 'Fond sélectionné, invitations Pro'), T('--focus', '#6a5cb0', '#ab9fe6', 'Anneau de focus 2 px'), T('--success', '#1f6a45', '#6fcf9a', 'Validé, résolu'), T('--warning', '#7a5200', '#e7bb62', 'Non résolu, quota'), T('--danger', '#b42318', '#f28b7f', 'Erreurs, suppression')] },
+        { title: 'Conversation', items: [T('--c-bg', '#ffffff', '#16181d', 'Fond des messages'), T('--c-hover', '#f6f7f8', '#1c1f25', 'Survol de message'), T('--c-text', '#1d1f23', '#d9dce1', 'Corps de message'), T('--c-muted', '#5f646c', '#9aa0a9', 'Heures, « (modifié) »'), T('--c-mention-bg', '#e6f0fa', '#1b3350', '@mention, #canal'), T('--c-mention-fg', '#0f5796', '#a6cdf6', 'Texte de mention'), T('--c-here-bg', '#fcf1d4', '#3a2f10', '@here, @channel'), T('--c-reaction-bg', '#f1f2f4', '#21252c', 'Pastille de réaction'), T('--c-code-bg', '#f6f7f8', '#1e2127', 'Code en ligne et blocs'), T('--c-code-fg', '#a4244a', '#f295ad', 'Code en ligne'), T('--c-quote', '#cfd3d9', '#4c535e', 'Barre de citation, aperçu de lien'), T('--c-link', '#1264a3', '#74b6f2', 'Liens, « 3 réponses »'), T('--c-divider', '#e3e5e8', '#2b3038', 'Séparateur de jour'), T('--c-hl', '#fde68a', '#6b5a12', 'Surlignage de recherche')] },
+      ],
+      typeScale: [
+        { name: 'display / 22·600', font: '600 22px/1.25 var(--font-app)', sample: 'Bibliothèque', spec: 'Plex Sans · -1 % · titres de page' },
+        { name: 'title / 16·600', font: '600 16px/1.3 var(--font-app)', sample: 'Exporter la conversation', spec: 'Plex Sans · feuilles, sections' },
+        { name: 'body / 14·400', font: '400 14px/1.45 var(--font-app)', sample: 'Les archives sont lues et conservées dans ce navigateur.', spec: 'Plex Sans · interface' },
+        { name: 'label / 13·500', font: '500 13px/1.4 var(--font-app)', sample: 'Uniquement les canaux dont je suis membre', spec: 'Plex Sans · boutons, champs' },
+        { name: 'meta / 12·400', font: '400 12px/1.4 var(--font-app)', sample: '12 messages · 10 → 12 févr. 2026', spec: 'Plex Sans · métadonnées' },
+        { name: 'msg-name / 15·900', font: '900 15px/1.4 var(--font-read)', sample: 'Sarah Lemaire', spec: 'Lato · auteur' },
+        { name: 'msg-body / 15·400', font: '400 15px/1.4667 var(--font-read)', sample: 'Voici la v3, relue par le juridique.', spec: 'Lato · 22 px d’interligne' },
+        { name: 'mono / 12·400', font: '400 12px/1.5 var(--font-mono)', sample: 'C0AE23W6W0J · acme.slack.com', spec: 'Plex Mono · ID, code' },
+      ],
+      spaces: [4, 8, 12, 16, 20, 24, 32, 40].map(n => ({ n, px: n + 'px' })),
+      radii: [['sm 4', '4px'], ['md 6', '6px'], ['lg 8', '8px'], ['xl 12', '12px'], ['pill', '14px']].map(([n, px]) => ({ n, px })),
+      shadows: [['shadow-1', '0 1px 2px rgba(16,20,28,.06), 0 0 0 1px rgba(16,20,28,.05)'], ['shadow-2', '0 4px 14px rgba(16,20,28,.08), 0 1px 3px rgba(16,20,28,.06)'], ['shadow-3', '0 24px 60px rgba(16,20,28,.18), 0 2px 8px rgba(16,20,28,.08)']].map(([n, v]) => ({ n, v })),
+      importFrames: [
+        imp('I1', '1 · Source : Slack occupe l’étape, fichier en secondaire', {}),
+        imp('I2', '1 · Fichier déposé invalide', { fileErr: true }),
+        imp('I3', '2 · Espaces déjà connectés (formulaire replié)', { step: 2 }),
+        imp('I4', '2 · Nouvel espace · code QR reconnu', { step: 2, signin: 'form', qr: 'https://files.slack.com/qr/acme-7f3a92.png' }),
+        imp('I5', '2 · Nouvel espace · connexion Slack · sombre', { step: 2, signin: 'form', method: 'slack', theme: 'dark' }),
+        imp('I6', '2 · Navigateur de connexion : ouverture', { step: 2, signin: 'sso-opening' }),
+        imp('I7', '2 · Navigateur de connexion : clavier actif', { step: 2, signin: 'sso', focus: true }),
+        imp('I8', '2 · Navigateur de connexion : sans focus · sombre', { step: 2, signin: 'sso', theme: 'dark' }),
+        imp('I9', '3 · Conversations · champ vide, exemples', { step: 3 }),
+        imp('I10', '3 · Recherche « inc » · compteur', { step: 3, chq: 'inc' }),
+        imp('I11', '3 · Liste complète, plafond 400 · sombre', { step: 3, mo: false, theme: 'dark' }),
+        imp('I12', '3 · Aucun résultat', { step: 3, chq: 'facturation' }),
+        imp('I13', '4 · Traitement · lignes de progression', { step: 4 }),
+        imp('I14', '4 · Erreur avec détail', { step: 4, err: true }),
+        imp('I15', '5 · Terminé · résumé', { step: 5 }),
+        imp('I16', 'Fichier · annuaire détecté dans le ZIP', { path: 'file', step: 2 }),
+        imp('I17', 'Fichier · annuaire ajouté · sombre', { path: 'file', step: 2, dir: 'added', theme: 'dark' }),
+        imp('I18', 'Fichier · étape ignorée', { path: 'file', step: 2, dir: 'skipped' }),
+      ],
+      archiveFrames: [
+        arc('C1', 'Conversation · bannière identifiants inconnus', {}),
+        arc('C2', 'Conversation · sombre', { theme: 'dark', ud: true }),
+        arc('C3', 'Recherche « recette » · surlignage, 3 / 12', { q: 'recette', ud: true }),
+        arc('C4', 'Filtré par auteur : Sarah Lemaire', { author: 'U01', ud: true }),
+        arc('C5', 'Fil ouvert', { thread: 'T1', ud: true }),
+        arc('C6', 'Fil ouvert · e-mails affichés · sombre', { thread: 'T1', email: true, theme: 'dark', ud: true }),
+        arc('C7', 'Recherche sans résultat', { q: 'facture', ud: true }),
+        arc('C8', 'Bannière d’erreur · #incident', { conv: 'C06INC12M03', errB: true, ud: true }),
+        arc('C9', 'Fichier glissé dans la fenêtre', { drop: true, ud: true }),
+        arc('X1', 'Export · aperçu HTML', { ex: true, ud: true }),
+        arc('X2', 'Export · format Pro verrouillé', { ex: true, fmt: 'pack', ud: true }),
+        arc('X3', 'Export · génération · sombre', { ex: true, es: 'generating', theme: 'dark', ud: true }),
+        arc('X4', 'Export · téléchargé', { ex: true, es: 'done', ud: true }),
+        arc('P1', 'Personnes · nommer un identifiant, suggestions', { tab: 'people', editing: 'U09MJ41Q0RJ' }),
+        arc('P2', 'Personnes · sombre', { tab: 'people', theme: 'dark' }),
+        arc('H1', 'Exports · historique', { screen: 'exports' }),
+      ],
+      phoneFrames: [
+        ph('R1', 'Téléphone · bibliothèque', { screen: 'library' }),
+        ph('R2', 'Téléphone · navigateur de l’archive', {}),
+        ph('R3', 'Téléphone · conversation', { pane: 'conv' }),
+        ph('R4', 'Téléphone · fil (plein écran) · sombre', { pane: 'conv', thread: 'T1', theme: 'dark' }),
+        ph('R5', 'Téléphone · export', { pane: 'conv', ex: true }),
+      ],
+      notes: [
+        { k: 'Transitions', v: 'Feuilles et fil : glissement 180 ms ease-out depuis la droite, voile en fondu 120 ms. Survol : 80 ms sur le fond uniquement. Rien ne bouge au chargement ; respect de prefers-reduced-motion (fondu seul).' },
+        { k: 'Survol & focus', v: 'Survol = fond --surface-2 (app) ou --c-hover (message). Focus clavier = anneau 2 px --focus décalé de 2 px, sur tout élément interactif, jamais masqué. Les heures des messages groupés et « Voir le fil » n’apparaissent qu’au survol ou au focus.' },
+        { k: 'Retour arrière', v: 'Chaque changement de vue pousse un état d’historique (écran, conversation, onglet, fil). Le navigateur de l’archive n’est jamais démonté : filtre, sections ouvertes et position de défilement sont conservés ; Précédent (bouton ou navigateur) y ramène tel quel.' },
+        { k: 'Navigateur SSO', v: 'L’image capte le clavier seulement après un clic : anneau de focus 3 px + badge « Clavier actif · Échap pour sortir ». Sans focus, une bulle invite à cliquer. Le flux d’images, l’adresse, l’étape et Annuler restent visibles en permanence.' },
+        { k: 'Filtres', v: 'Recherche et filtre d’auteur se combinent ; le compteur passe à « 3 / 12 messages » sur fond accent. Pendant un filtre, tous les en-têtes de message réapparaissent (plus de regroupement) pour que chaque ligne reste attribuable.' },
+        { k: 'Glisser-déposer', v: 'Un fichier glissé n’importe où ouvre le voile plein écran ; au dépôt, l’assistant s’ouvre directement à l’étape Annuaire (ZIP/JSON valide) ou à l’étape Source avec l’erreur (fichier invalide).' },
+      ],
+      keys: [{ k: 'Échap', v: 'Ferme menu → feuille → fil, dans cet ordre' }, { k: '⌘/Ctrl K', v: 'Aller à une conversation (champ du navigateur)' }, { k: '⌘/Ctrl F', v: 'Rechercher dans la conversation' }, { k: '↑ ↓ Entrée', v: 'Parcourir et ouvrir les lignes de liste' }, { k: 'Tab', v: 'Ordre : rail → barre → navigateur → messages → fil' }, { k: 'Entrée', v: 'Valider un nom dans Personnes' }],
+      recos: [
+        { n: '01', t: 'Rail d’icônes + navigateur contextuel', d: 'Au lieu d’une barre latérale unique, un rail fixe (Bibliothèque, Importer, Exports, Réglages) et, dans une archive, le navigateur en deuxième colonne. Deux niveaux clairs, sans deux barres de libellés côte à côte.' },
+        { n: '02', t: 'Action principale en haut à droite, toujours', d: 'Importer dans la Bibliothèque et les Exports, Exporter dans une archive. Le compte (offre, déconnexion) juste à côté. L’utilisateur n’a jamais à chercher « le » bouton.' },
+        { n: '03', t: 'Personnes : un onglet, pas une page à part', d: 'Conversations / Personnes sous forme d’onglets dans le navigateur, avec le nombre d’identifiants à nommer. La liste « Personnes dans la conversation » sert de filtre d’auteur ; le crayon mène directement à la ligne à corriger.' },
+        { n: '04', t: 'Assistant d’import à pas variables', d: 'Parcours Slack : 5 étapes. Parcours fichier : 4 (l’annuaire remplace la connexion, la sélection disparaît). Le stepper affiche le bon nombre ; un fichier déposé saute directement à la bonne étape.' },
+        { n: '05', t: 'Rendre visible la promesse locale au bon endroit', d: 'Une ligne discrète « sur cet appareil » dans l’import, la bibliothèque, le navigateur et la feuille d’export — jamais un slogan. Prévoir « Données sur cet appareil » dans Réglages comme source unique de vérité.' },
+        { n: '06', t: 'Préparer « Dossiers » (matters)', d: 'Les cas juridiques et RH regroupent souvent plusieurs archives. Une future entrée « Dossiers » dans le rail (sélections sauvegardées, requêtes RGPD par personne) évitera de surcharger la Bibliothèque.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -80,6 +80,12 @@ export interface Formatters {
   full: (date: Date) => string;
   /** 12 kB */
   size: (bytes?: number) => string;
+  /** 10 Feb 2026 */
+  date: (date: Date) => string;
+  /** 12 Jan – 3 Mar 2026: a conversation's period. */
+  range: (from: Date, to: Date) => string;
+  /** 3 minutes ago / yesterday / 2 weeks ago */
+  ago: (date: Date) => string;
 }
 
 const formattersCache = new Map<Locale, Formatters>();
@@ -104,6 +110,7 @@ export function formatters(locale: Locale): Formatters {
     minute: "2-digit",
   });
   const fullFmt = new Intl.DateTimeFormat(tag, { dateStyle: "full", timeStyle: "medium" });
+  const dateFmt = new Intl.DateTimeFormat(tag, { day: "numeric", month: "short", year: "numeric" });
   // "today" / "yesterday" come from the platform, in every language.
   const relative = new Intl.RelativeTimeFormat(tag, { numeric: "auto" });
   const unit = (u: string, maximumFractionDigits = 0) =>
@@ -124,6 +131,25 @@ export function formatters(locale: Locale): Formatters {
     },
     dayShort: (date) => shortFmt.format(date),
     full: (date) => fullFmt.format(date),
+    date: (date) => dateFmt.format(date),
+    range: (from, to) => {
+      try {
+        return dateFmt.formatRange(from, to);
+      } catch {
+        return `${dateFmt.format(from)} – ${dateFmt.format(to)}`;
+      }
+    },
+    ago: (date) => {
+      const seconds = (date.getTime() - Date.now()) / 1000;
+      const abs = Math.abs(seconds);
+      if (abs < 60) return relative.format(0, "second");
+      if (abs < 3600) return relative.format(Math.round(seconds / 60), "minute");
+      if (abs < 86400) return relative.format(Math.round(seconds / 3600), "hour");
+      if (abs < 86400 * 7) return relative.format(Math.round(seconds / 86400), "day");
+      if (abs < 86400 * 30) return relative.format(Math.round(seconds / (86400 * 7)), "week");
+      if (abs < 86400 * 365) return relative.format(Math.round(seconds / (86400 * 30)), "month");
+      return relative.format(Math.round(seconds / (86400 * 365)), "year");
+    },
     size: (size) => {
       if (!size) return "";
       if (size < 1024) return bytes.format(size);

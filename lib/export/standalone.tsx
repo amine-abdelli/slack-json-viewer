@@ -376,14 +376,16 @@ function download(fileName: string, blob: Blob) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export function downloadHtml(fileName: string, html: string) {
-  download(fileName, new Blob([html], { type: "text/html;charset=utf-8" }));
+/** Saves the page; returns its size in bytes. */
+export function downloadHtml(fileName: string, html: string): number {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  download(fileName, blob);
+  return blob.size;
 }
 
-/** The conversation as JSON — indented, and reloadable by this viewer. */
-export function downloadJson(fileName: string, value: unknown) {
-  download(
-    fileName,
-    new Blob([JSON.stringify(value, null, 2)], { type: "application/json;charset=utf-8" }),
-  );
+/** The conversation as JSON — indented, and reloadable by this viewer. Returns its size. */
+export function downloadJson(fileName: string, value: unknown): number {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json;charset=utf-8" });
+  download(fileName, blob);
+  return blob.size;
 }

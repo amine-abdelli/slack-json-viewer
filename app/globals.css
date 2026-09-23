@@ -1,117 +1,196 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* Dark mode: the app sets `data-theme="dark"`; exported pages toggle `.dark`. */
+@custom-variant dark (&:is([data-theme="dark"] *, .dark *));
 
 /* ---------------------------------------------------------------------------
-   Slack design tokens
-   Reference values taken from Slack's own product palette (Aubergine theme).
+   Loquarium tokens — from claude-design-ui-mockups-project/loquarium-tokens.css
+   Two families: the application chrome (--bg, --surface…, --accent…) and the
+   conversation reading surface (--c-*), which stays close to Slack.
 --------------------------------------------------------------------------- */
-:root {
-  --slack-aubergine: #3f0e40;
-  --slack-aubergine-dark: #350d36;
-  --slack-aubergine-hover: #350d36;
-  --slack-sidebar-fg: #cfc3cf;
-  --slack-sidebar-fg-strong: #ffffff;
-  --slack-active: #1164a3;
-  --slack-blue: #1264a3;
-  --slack-green: #2bac76;
-  --slack-red: #e01e5a;
-  --slack-yellow: #ecb22e;
+:root,
+[data-theme="light"] {
+  --font-app: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --font-read: "Lato", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  --slack-bg: #ffffff;
-  --slack-bg-hover: #f8f8f8;
-  --slack-fg: #1d1c1d;
-  --slack-fg-muted: #616061;
-  --slack-border: #dddddd;
-  --slack-border-soft: #e8e8e8;
-  --slack-code-bg: #f6f6f6;
-  --slack-code-fg: #e01e5a;
-  --slack-mention-bg: #e8f5fa;
-  --slack-mention-fg: #1264a3;
-  --slack-reaction-bg: #ffffff;
-  --slack-reaction-border: #dddddd;
-  --slack-reaction-active-bg: #e8f5fa;
-  --slack-reaction-active-border: #1264a3;
-  --slack-quote-bar: #dddddd;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-3: #e6e9ee;
+  --rail: #eceef2;
+  --border: #e0e3e9;
+  --border-strong: #c7ccd5;
+  --text: #121419;
+  --text-2: #434a55;
+  --text-3: #5f6773;
+  --accent: #4b3f72;
+  --accent-hover: #3d335f;
+  --accent-fg: #ffffff;
+  --accent-soft: #edeaf5;
+  --accent-text: #4b3f72;
+  --accent-line: #c9c1e0;
+  --success: #1f6a45;
+  --success-soft: #e4f2ea;
+  --warning: #7a5200;
+  --warning-soft: #fbf0d9;
+  --danger: #b42318;
+  --danger-soft: #fbe8e6;
+  --info-soft: #e9eef6;
+  --focus: #6a5cb0;
+  --scrim: rgba(14, 16, 22, 0.38);
+  --inverse: #1b1e24;
+  --inverse-fg: #f2f3f5;
+  --shadow-1: 0 1px 2px rgba(16, 20, 28, 0.06);
+  --shadow-2: 0 4px 14px rgba(16, 20, 28, 0.08), 0 1px 3px rgba(16, 20, 28, 0.06);
+  --shadow-3: 0 24px 60px rgba(16, 20, 28, 0.18), 0 2px 8px rgba(16, 20, 28, 0.08);
 
-  --radius: 0.5rem;
-
-  --background: #ffffff;
-  --foreground: #1d1c1d;
-  --card: #ffffff;
-  --card-foreground: #1d1c1d;
-  --popover: #ffffff;
-  --popover-foreground: #1d1c1d;
-  --primary: #3f0e40;
-  --primary-foreground: #ffffff;
-  --secondary: #f4f4f4;
-  --secondary-foreground: #1d1c1d;
-  --muted: #f4f4f4;
-  --muted-foreground: #616061;
-  --accent: #f4f4f4;
-  --accent-foreground: #1d1c1d;
-  --destructive: #e01e5a;
-  --border: #dddddd;
-  --input: #dddddd;
-  --ring: #1264a3;
+  --c-bg: #ffffff;
+  --c-hover: #f6f7f8;
+  --c-text: #1d1f23;
+  --c-muted: #5f646c;
+  --c-divider: #e3e5e8;
+  --c-mention-bg: #e6f0fa;
+  --c-mention-fg: #0f5796;
+  --c-here-bg: #fcf1d4;
+  --c-here-fg: #6a4a00;
+  --c-reaction-bg: #f1f2f4;
+  --c-reaction-border: #e1e3e7;
+  --c-code-bg: #f6f7f8;
+  --c-code-fg: #a4244a;
+  --c-code-border: #e1e3e7;
+  --c-quote: #cfd3d9;
+  --c-link: #1264a3;
+  --c-hl: #fde68a;
+  --c-hl-fg: #1d1f23;
+  --c-card-border: #dfe2e6;
+  --c-thread-bg: #ffffff;
+  color-scheme: light;
 }
 
+[data-theme="dark"],
 .dark {
-  --slack-aubergine: #19171d;
-  --slack-aubergine-dark: #121016;
-  --slack-aubergine-hover: #27242c;
-  --slack-sidebar-fg: #abaaad;
-  --slack-sidebar-fg-strong: #ffffff;
-  --slack-active: #1164a3;
-  --slack-blue: #1d9bd1;
+  --bg: #0d0f13;
+  --surface: #14171c;
+  --surface-2: #1a1e24;
+  --surface-3: #232830;
+  --rail: #101216;
+  --border: #252a32;
+  --border-strong: #363c47;
+  --text: #e8eaee;
+  --text-2: #b3b9c3;
+  --text-3: #8e96a2;
+  --accent: #a194da;
+  --accent-hover: #b4a9e4;
+  --accent-fg: #15121f;
+  --accent-soft: #241f36;
+  --accent-text: #bcb2ee;
+  --accent-line: #4a4270;
+  --success: #6fcf9a;
+  --success-soft: #122419;
+  --warning: #e7bb62;
+  --warning-soft: #2a2110;
+  --danger: #f28b7f;
+  --danger-soft: #2d1614;
+  --info-soft: #18202c;
+  --focus: #ab9fe6;
+  --scrim: rgba(0, 0, 0, 0.58);
+  --inverse: #eceef2;
+  --inverse-fg: #15171c;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
 
-  --slack-bg: #1a1d21;
-  --slack-bg-hover: #222529;
-  --slack-fg: #d1d2d3;
-  --slack-fg-muted: #ababad;
-  --slack-border: #35373b;
-  --slack-border-soft: #2c2d30;
-  --slack-code-bg: #232529;
-  --slack-code-fg: #e06c9b;
-  --slack-mention-bg: #1f3141;
-  --slack-mention-fg: #1d9bd1;
-  --slack-reaction-bg: #222529;
-  --slack-reaction-border: #35373b;
-  --slack-reaction-active-bg: #1f3141;
-  --slack-reaction-active-border: #1d9bd1;
-  --slack-quote-bar: #494a4d;
+  --c-bg: #16181d;
+  --c-hover: #1c1f25;
+  --c-text: #d9dce1;
+  --c-muted: #9aa0a9;
+  --c-divider: #2b3038;
+  --c-mention-bg: #1b3350;
+  --c-mention-fg: #a6cdf6;
+  --c-here-bg: #3a2f10;
+  --c-here-fg: #f1d27f;
+  --c-reaction-bg: #21252c;
+  --c-reaction-border: #323843;
+  --c-code-bg: #1e2127;
+  --c-code-fg: #f295ad;
+  --c-code-border: #323843;
+  --c-quote: #4c535e;
+  --c-link: #74b6f2;
+  --c-hl: #6b5a12;
+  --c-hl-fg: #fff6cf;
+  --c-card-border: #323843;
+  --c-thread-bg: #1a1d22;
+  color-scheme: dark;
+}
 
-  --background: #1a1d21;
-  --foreground: #d1d2d3;
-  --card: #1a1d21;
-  --card-foreground: #d1d2d3;
-  --popover: #222529;
-  --popover-foreground: #d1d2d3;
-  --primary: #ffffff;
-  --primary-foreground: #1a1d21;
-  --secondary: #27292d;
-  --secondary-foreground: #d1d2d3;
-  --muted: #27292d;
-  --muted-foreground: #ababad;
-  --accent: #27292d;
-  --accent-foreground: #d1d2d3;
-  --destructive: #e01e5a;
-  --border: #35373b;
-  --input: #35373b;
-  --ring: #1d9bd1;
+/* ---------------------------------------------------------------------------
+   Aliases. shadcn/ui components and the earlier Slack-styled code read these
+   names; they now point at the tokens above, in both themes.
+   Loquarium's `--accent` is the brand colour — shadcn's hover "accent" maps
+   to `--surface-2` in @theme below, never to `--accent`.
+--------------------------------------------------------------------------- */
+:root {
+  --radius: 6px;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-fg);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-3);
+  --destructive: var(--danger);
+  --input: var(--border-strong);
+  --ring: var(--focus);
+
+  --slack-aubergine: var(--accent);
+  --slack-aubergine-dark: var(--accent-hover);
+  --slack-aubergine-hover: var(--surface-2);
+  --slack-sidebar-fg: var(--text-2);
+  --slack-sidebar-fg-strong: var(--text);
+  --slack-active: var(--accent);
+  --slack-blue: var(--c-link);
+  --slack-green: var(--success);
+  --slack-red: var(--danger);
+  --slack-yellow: var(--warning);
+  --slack-bg: var(--c-bg);
+  --slack-bg-hover: var(--c-hover);
+  --slack-fg: var(--c-text);
+  --slack-fg-muted: var(--c-muted);
+  --slack-border: var(--c-card-border);
+  --slack-border-soft: var(--c-divider);
+  --slack-code-bg: var(--c-code-bg);
+  --slack-code-fg: var(--c-code-fg);
+  --slack-mention-bg: var(--c-mention-bg);
+  --slack-mention-fg: var(--c-mention-fg);
+  --slack-reaction-bg: var(--c-reaction-bg);
+  --slack-reaction-border: var(--c-reaction-border);
+  --slack-quote-bar: var(--c-quote);
 }
 
 @theme inline {
-  --font-sans: "Lato", "Slack-Lato", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: "Monaco", "Menlo", Consolas, "Courier New", monospace;
+  --font-sans: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --font-app: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --font-read: "Lato", "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+
+  /* shadcn names */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -124,29 +203,64 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--text);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  /* Loquarium names: bg-surface-2, text-fg-3, bg-brand, border-border-strong… */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-rail: var(--rail);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-fg: var(--accent-fg);
+  --color-brand-soft: var(--accent-soft);
+  --color-brand-text: var(--accent-text);
+  --color-brand-line: var(--accent-line);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info-soft: var(--info-soft);
+  --color-focus: var(--focus);
+  --color-scrim: var(--scrim);
+  --color-inverse: var(--inverse);
+  --color-inverse-fg: var(--inverse-fg);
+
+  /* the reading surface */
+  --color-c-bg: var(--c-bg);
+  --color-c-hover: var(--c-hover);
+  --color-c-text: var(--c-text);
+  --color-c-muted: var(--c-muted);
+  --color-c-divider: var(--c-divider);
+  --color-c-link: var(--c-link);
+  --color-c-card-border: var(--c-card-border);
+  --color-c-reaction-bg: var(--c-reaction-bg);
+  --color-c-reaction-border: var(--c-reaction-border);
+  --color-c-code-bg: var(--c-code-bg);
+  --color-c-thread-bg: var(--c-thread-bg);
+
+  /* kept for code that still names them */
   --color-slack-aubergine: var(--slack-aubergine);
-  --color-slack-aubergine-dark: var(--slack-aubergine-dark);
-  --color-slack-aubergine-hover: var(--slack-aubergine-hover);
-  --color-slack-sidebar-fg: var(--slack-sidebar-fg);
-  --color-slack-sidebar-strong: var(--slack-sidebar-fg-strong);
-  --color-slack-active: var(--slack-active);
   --color-slack-blue: var(--slack-blue);
   --color-slack-green: var(--slack-green);
   --color-slack-red: var(--slack-red);
-  --color-slack-yellow: var(--slack-yellow);
   --color-slack-bg: var(--slack-bg);
   --color-slack-hover: var(--slack-bg-hover);
   --color-slack-fg: var(--slack-fg);
   --color-slack-muted: var(--slack-fg-muted);
   --color-slack-border: var(--slack-border);
-  --color-slack-border-soft: var(--slack-border-soft);
 }
 
 @layer base {
@@ -158,21 +272,66 @@
     height: 100%;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-app);
+    font-size: 14px;
+    line-height: 1.45;
     -webkit-font-smoothing: antialiased;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-3);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
   }
 }
 
-/* Slack message body typography ------------------------------------------- */
+@keyframes lqspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes lqpulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes lqshimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+.lq-pulse {
+  animation: lqpulse 1.6s infinite;
+}
+.lq-shimmer {
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2));
+  background-size: 400px 100%;
+  animation: lqshimmer 1.4s linear infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Conversation reading surface (shared with the standalone export)
+--------------------------------------------------------------------------- */
 .slack-body {
+  font-family: var(--font-read);
   font-size: 15px;
-  line-height: 1.46668;
-  color: var(--slack-fg);
-  word-break: break-word;
+  line-height: 1.4667;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
 }
 .slack-body a {
-  color: var(--slack-blue);
+  color: var(--c-link);
   text-decoration: none;
 }
 .slack-body a:hover {
@@ -181,25 +340,26 @@
 .slack-body code {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--slack-code-fg);
-  background: var(--slack-code-bg);
-  border: 1px solid var(--slack-border);
+  color: var(--c-code-fg);
+  background: var(--c-code-bg);
+  border: 1px solid var(--c-code-border);
   border-radius: 3px;
   padding: 1px 3px 2px;
 }
 .slack-body pre {
   font-family: var(--font-mono);
   font-size: 12px;
-  background: var(--slack-code-bg);
-  border: 1px solid var(--slack-border);
-  border-radius: 4px;
-  padding: 8px;
+  line-height: 1.6;
+  background: var(--c-code-bg);
+  border: 1px solid var(--c-code-border);
+  border-radius: 6px;
+  padding: 8px 12px;
   margin: 4px 0;
   overflow-x: auto;
   white-space: pre-wrap;
 }
 .slack-body blockquote {
-  border-left: 4px solid var(--slack-quote-bar);
+  border-left: 4px solid var(--c-quote);
   padding-left: 12px;
   margin: 4px 0;
 }
@@ -218,15 +378,18 @@
    Every message carries both its full header and its compact hover-time so a
    client-side filter can promote a grouped message to a full one instantly. */
 .slack-msg {
+  font-family: var(--font-read);
+  color: var(--c-text);
   padding-top: 8px;
-  padding-bottom: 3px;
+  padding-bottom: 4px;
+  break-inside: avoid;
 }
 .slack-msg-time {
   display: none;
-  color: var(--slack-fg-muted);
+  color: var(--c-muted);
 }
 .slack-msg[data-grouped="true"] {
-  padding-top: 3px;
+  padding-top: 2px;
 }
 .slack-msg[data-grouped="true"] .slack-msg-avatar,
 .slack-msg[data-grouped="true"] .slack-msg-head {
@@ -239,7 +402,7 @@
   padding-top: 8px;
 }
 .slack-filtering .slack-msg[data-grouped="true"] .slack-msg-avatar {
-  display: inline-block;
+  display: block;
 }
 .slack-filtering .slack-msg[data-grouped="true"] .slack-msg-head {
   display: flex;
@@ -247,27 +410,31 @@
 .slack-filtering .slack-msg[data-grouped="true"] .slack-msg-time {
   display: none;
 }
+
 /* Threads ------------------------------------------------------------------ */
 .slack-thread-bar {
   cursor: pointer;
 }
 .slack-thread-bar:hover {
-  background: var(--slack-bg);
-  border-color: var(--slack-border) !important;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  background: var(--c-thread-bg);
+  border-color: var(--c-card-border) !important;
+}
+.slack-thread-bar .slack-thread-hover {
+  display: none;
+}
+.slack-thread-bar:hover .slack-thread-hover {
+  display: inline-flex;
+}
+.slack-thread-bar:hover .slack-thread-idle {
+  display: none;
 }
 /* The replies live inside their root message so the exported page can clone
    them into the thread panel; they are never part of the main flow. */
 .slack-thread-source {
   display: none !important;
 }
-/* Inside the panel the same markup is shown. */
 .slack-thread-panel .slack-thread-source {
   display: block !important;
-}
-.slack-thread-panel .slack-msg {
-  padding-left: 16px;
-  padding-right: 16px;
 }
 .slack-thread-panel .slack-thread-bar {
   display: none;
@@ -275,17 +442,15 @@
 .slack-thread-divider {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 12px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--slack-fg-muted);
+  gap: 10px;
+  padding: 8px 20px;
+  font: 13px var(--font-read);
+  color: var(--c-muted);
 }
 .slack-thread-divider::after {
   content: "";
   flex: 1;
-  height: 1px;
-  background: var(--slack-border);
+  border-top: 1px solid var(--c-divider);
 }
 #x-thread[hidden] {
   display: none !important;
@@ -304,13 +469,13 @@
   height: 10px;
 }
 .slack-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--slack-fg-muted) 35%, transparent);
+  background: color-mix(in srgb, var(--text-3) 35%, transparent);
   border-radius: 6px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 .slack-scroll::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--slack-fg-muted) 55%, transparent);
+  background: color-mix(in srgb, var(--text-3) 55%, transparent);
   background-clip: padding-box;
 }
 .slack-scroll::-webkit-scrollbar-track {
@@ -318,12 +483,14 @@
 }
 
 mark.slack-hit {
-  background: #fff2c6;
-  color: inherit;
+  background: var(--c-hl);
+  color: var(--c-hl-fg);
   border-radius: 2px;
   padding: 0 1px;
 }
-.dark mark.slack-hit {
-  background: #5c4813;
-  color: #ffe9a8;
+
+@media print {
+  .lq-noprint {
+    display: none !important;
+  }
 }

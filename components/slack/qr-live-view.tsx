@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MonitorSmartphone } from "lucide-react";
+import { Keyboard, Loader, MousePointerClick } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n/react";
 import { QR_INPUT_KEYS, QR_VIEWPORT, type QrInput, type QrInputKey } from "@/lib/slack/bridge-types";
@@ -110,54 +110,60 @@ export function QrLiveView({
   };
 
   return (
-    <section className="space-y-2" aria-labelledby="qr-live-title">
-      <div className="flex items-center gap-2">
-        <MonitorSmartphone className="size-4 text-[var(--slack-green)]" />
-        <p id="qr-live-title" className="text-sm font-medium">
-          {m.connect.liveTitle}
-        </p>
-      </div>
-      <p className="text-xs text-muted-foreground">{m.connect.liveHint}</p>
-
-      <div
-        ref={boxRef}
-        role="application"
-        aria-label={m.connect.liveTitle}
-        tabIndex={0}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        onWheel={handleWheel}
-        onFocus={() => setFocused(true)}
-        onBlur={() => {
-          flushText();
-          setFocused(false);
-        }}
-        className={cn(
-          "relative w-full cursor-pointer overflow-hidden rounded-md border bg-muted outline-none transition-shadow",
-          focused && "ring-[3px] ring-[var(--slack-green)]/50",
-        )}
-        style={{ aspectRatio: `${QR_VIEWPORT.width} / ${QR_VIEWPORT.height}` }}
-      >
-        {frame ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={frame}
-            alt=""
-            draggable={false}
-            className="pointer-events-none size-full select-none object-contain"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+    <div
+      ref={boxRef}
+      role="application"
+      aria-label={m.connect.liveTitle}
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
+      onWheel={handleWheel}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        flushText();
+        setFocused(false);
+      }}
+      className={cn(
+        "relative w-full cursor-text overflow-hidden bg-[#eef0f3] outline-none transition-shadow focus-visible:outline-none",
+        focused && "shadow-[inset_0_0_0_2px_var(--focus)]",
+      )}
+      style={{ aspectRatio: `${QR_VIEWPORT.width} / ${QR_VIEWPORT.height}` }}
+    >
+      {frame ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={frame}
+          alt=""
+          draggable={false}
+          className="pointer-events-none size-full select-none object-contain"
+        />
+      ) : (
+        <div
+          className="grid size-full place-items-center"
+          style={{
+            background:
+              "repeating-linear-gradient(135deg,var(--surface-2) 0 12px,var(--surface-3) 12px 24px)",
+          }}
+        >
+          <div className="flex items-center gap-2.5 rounded-[8px] bg-surface px-3.5 py-2.5 text-[13px] text-fg-2 shadow-2">
+            <Loader className="size-4 animate-spin" />
             {m.connect.liveWaiting}
           </div>
-        )}
-        {frame && !focused ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/60 px-3 py-1.5 text-center text-xs text-white">
-            {m.connect.liveFocus}
-          </div>
-        ) : null}
-      </div>
-    </section>
+        </div>
+      )}
+      {frame && !focused ? (
+        <div className="pointer-events-none absolute bottom-3.5 left-1/2 flex -translate-x-1/2 items-center gap-[7px] rounded-[20px] bg-inverse px-3 py-[7px] text-[12px] font-medium whitespace-nowrap text-inverse-fg shadow-2">
+          <MousePointerClick className="size-[13px]" />
+          {m.connect.liveFocus}
+        </div>
+      ) : null}
+      {frame && focused ? (
+        <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-1.5 rounded-[14px] bg-brand px-[9px] py-1 text-[11px] font-medium text-brand-fg">
+          <Keyboard className="size-3" />
+          {m.connect.liveKeyboard}
+        </div>
+      ) : null}
+    </div>
   );
 }

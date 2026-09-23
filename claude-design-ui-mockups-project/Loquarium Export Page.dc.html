@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="loquarium-tokens.css">
+<style>html,body{margin:0}body{-webkit-font-smoothing:antialiased}a{color:var(--c-link)}a:hover{color:var(--c-link)}button,select{font-family:inherit}</style>
+</helmet>
+<div data-theme="{{ theme }}" style="position:relative;height:{{ rootH }};overflow:hidden;background:{{ pageBg }};color:var(--c-text);font-family:var(--font-app);font-size:14px">
+
+  <sc-if value="{{ screenMode }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;height:100%">
+      <div ref="{{ scrollRef }}" style="flex:1;min-width:0;overflow:auto;background:var(--c-bg)">
+        <div class="lq-noprint" style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 200px"><i class="icon-hash" style="font-size:16px;color:var(--text-3)"></i><span style="font-weight:600;font-size:15px;color:var(--text)">product-launch</span><span style="font:500 12px var(--font-app);padding:2px 7px;border-radius:4px;background:{{ countBg }};color:{{ countFg }};white-space:nowrap">{{ countLabel }}</span></div>
+          <div style="display:flex;align-items:center;gap:6px;height:32px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);flex:0 1 240px;min-width:150px" style-focus-within="border-color:var(--focus);background:var(--surface)"><i class="icon-search" style="font-size:14px;color:var(--text-3)"></i><input value="{{ q }}" onChange="{{ onQ }}" placeholder="Rechercher" aria-label="Rechercher" style="flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--text);font:13px var(--font-app)"></div>
+          <select value="{{ author }}" onChange="{{ onAuthor }}" aria-label="Auteur" style="height:32px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font:13px var(--font-app);max-width:180px">
+            <option value="">Tous les auteurs</option>
+            <sc-for list="{{ authors }}" as="a"><option value="{{ a.id }}">{{ a.name }}</option></sc-for>
+          </select>
+          <sc-if value="{{ filtering }}"><button onClick="{{ clear }}" style="height:32px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--accent-text);font:500 13px var(--font-app);cursor:pointer">Effacer</button></sc-if>
+          <span style="width:1px;height:20px;background:var(--border)"></span>
+          <button onClick="{{ toggleTheme }}" title="Changer de thème" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--surface-2)"><i class="{{ themeIcon }}" style="font-size:16px"></i></button>
+          <button onClick="{{ doPrint }}" style="height:32px;display:flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer"><i class="icon-printer" style="font-size:14px"></i>Imprimer / PDF</button>
+          <button onClick="{{ toTop }}" title="Haut de page" aria-label="Haut de page" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--surface-2)"><i class="icon-arrow-up" style="font-size:16px"></i></button>
+        </div>
+        <div style="max-width:980px;margin:0 auto;padding-bottom:24px">
+          <div style="padding:26px 20px 10px;display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:12px;color:var(--c-muted)">acme · conversation exportée</div>
+            <h1 style="margin:0;font:600 24px/1.2 var(--font-app);color:var(--c-text)">#product-launch</h1>
+            <div style="font-size:14px;color:var(--c-text);display:flex;gap:6px;align-items:center;flex-wrap:wrap"><i class="icon-calendar-range" style="font-size:14px;color:var(--c-muted)"></i>{{ range }}</div>
+            <div style="font-size:12px;color:var(--c-muted)">12 messages · 4 participants · heures en Europe/Paris (UTC+01:00) · exporté le 13 mars 2026 à 17:40</div>
+          </div>
+          <sc-for list="{{ rows }}" as="row" hint-placeholder-count="6">
+            <sc-if value="{{ row.divider }}"><div style="position:relative;display:flex;justify-content:center;margin:14px 0 4px"><span style="position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--c-divider)"></span><span style="position:relative;font:700 13px var(--font-read);padding:3px 14px;border:1px solid var(--c-divider);border-radius:14px;background:var(--c-bg)">{{ row.label }}</span></div></sc-if>
+            <sc-if value="{{ row.isMsg }}"><dc-import name="Loquarium Message" m="{{ row.msg }}" hint-size="100%,56px"></dc-import></sc-if>
+          </sc-for>
+          <sc-if value="{{ noResults }}"><div style="padding:48px 20px;text-align:center;color:var(--c-muted)">Aucun message ne correspond à cette recherche.</div></sc-if>
+          <div style="margin-top:28px;padding:16px 20px;border-top:1px solid var(--c-divider);font-size:12px;color:var(--c-muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span>Fichier autonome · fonctionne hors ligne</span><span>Réalisé avec Loquarium</span></div>
+        </div>
+      </div>
+      <sc-if value="{{ hasThread }}">
+        <aside class="lq-noprint" style="width:{{ threadW }};flex:none;display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--c-bg);position:{{ threadPos }};right:0;top:0;bottom:0;box-shadow:{{ threadShadow }}">
+          <div style="height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px 0 18px;border-bottom:1px solid var(--border);background:var(--surface)"><span style="font-weight:600;font-size:15px;color:var(--text)">Fil</span><span style="font-size:13px;color:var(--text-3)"># {{ th.conv }}</span><span style="flex:1"></span><button onClick="{{ closeThread }}" title="Fermer (Échap)" aria-label="Fermer" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center"><i class="icon-x" style="font-size:17px"></i></button></div>
+          <div style="flex:1;overflow:auto;padding:6px 0 20px">
+            <dc-import name="Loquarium Message" m="{{ th.root }}" hint-size="100%,120px"></dc-import>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 20px;font:13px var(--font-read);color:var(--c-muted)"><span>{{ th.count }}</span><span style="flex:1;border-top:1px solid var(--c-divider)"></span></div>
+            <sc-for list="{{ th.replies }}" as="r"><dc-import name="Loquarium Message" m="{{ r.msg }}" hint-size="100%,60px"></dc-import></sc-for>
+          </div>
+        </aside>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ printMode }}">
+    <div style="padding:32px;display:flex;flex-direction:column;align-items:center;gap:24px;overflow:auto;height:100%;box-sizing:border-box">
+      <sc-for list="{{ pages }}" as="pg">
+        <div style="width:794px;height:1123px;flex:none;box-sizing:border-box;padding:56px 48px 48px;background:#fff;color:#1d1f23;box-shadow:0 2px 12px rgba(0,0,0,.12);display:flex;flex-direction:column;--c-bg:#fff;--c-hover:#fff;--c-text:#1d1f23;--c-muted:#5f646c">
+          <div style="display:flex;justify-content:space-between;font:11px var(--font-app);color:#5f646c;border-bottom:1px solid #e3e5e8;padding-bottom:10px;margin-bottom:8px"><span>acme · #product-launch · 10 → 12 févr. 2026</span><span>Page {{ pg.n }} / 2</span></div>
+          <sc-if value="{{ pg.first }}"><div style="padding:8px 20px 6px"><div style="font:600 20px var(--font-app)">#product-launch</div><div style="font-size:12px;color:#5f646c;margin-top:4px">Mardi 10 février 2026, 08:29 → Jeudi 12 février 2026, 11:05 · Europe/Paris (UTC+01:00) · 12 messages</div></div></sc-if>
+          <div style="flex:1;overflow:hidden">
+            <sc-for list="{{ pg.rows }}" as="row">
+              <sc-if value="{{ row.divider }}"><div style="display:flex;align-items:center;gap:10px;margin:12px 20px 2px;font:700 12px var(--font-read)"><span>{{ row.label }}</span><span style="flex:1;border-top:1px solid #e3e5e8"></span></div></sc-if>
+              <sc-if value="{{ row.isMsg }}"><dc-import name="Loquarium Message" m="{{ row.msg }}" still="{{ true }}" hint-size="100%,56px"></dc-import></sc-if>
+            </sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;font:10.5px var(--font-app);color:#5f646c;border-top:1px solid #e3e5e8;padding-top:10px"><span>Exporté le 13 mars 2026 à 17:40</span><span>Réalisé avec Loquarium</span></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;print&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;narrow&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;embedded&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = {};
+  scrollRef = React.createRef();
+  componentDidMount() {
+    import((window.__resources && window.__resources['loquarium-data.js']) || new URL('loquarium-data.js', document.baseURI).href).then(D => { this.D = D; this.forceUpdate(); });
+    if (!this.props.embedded) { this._k = e => { if (e.key === 'Escape') this.setState({ thread: null }); }; window.addEventListener('keydown', this._k); }
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._k); }
+  g(k, d) { const s = this.state[k]; if (s !== undefined) return s; const p = this.props[k]; return p !== undefined && p !== null ? p : d; }
+  renderVals() {
+    const D = this.D;
+    const theme = this.g('theme', 'light'), print = !!this.props.print;
+    const q = this.g('q', ''), author = this.g('author', '') || '';
+    const v = {
+      theme, rootH: this.props.embedded ? '100%' : '100vh', screenMode: !print, printMode: print, pageBg: print ? '#e9ebee' : 'var(--c-bg)',
+      scrollRef: this.scrollRef, q, author,
+      onQ: e => this.setState({ q: e.target.value }), onAuthor: e => this.setState({ author: e.target.value }),
+      clear: () => this.setState({ q: '', author: '' }),
+      toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }), themeIcon: theme === 'dark' ? 'icon-sun' : 'icon-moon',
+      doPrint: () => window.print(), toTop: () => this.scrollRef.current && this.scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' }),
+      range: 'Mardi 10 février 2026, 08:29 → Jeudi 12 février 2026, 11:05',
+    };
+    if (!D) return v;
+    const R = D.buildRows('C04PL7K2QXA', { q, author: author || null, onThread: t => this.setState({ thread: t }) });
+    const tid = this.g('thread', null);
+    const th = tid ? D.threadView(tid, { q }) : null;
+    const narrow = this.props.narrow;
+    Object.assign(v, {
+      rows: R.rows, filtering: R.filtering, noResults: R.filtering && !R.shown,
+      countLabel: R.filtering ? `${R.shown} / ${R.total} messages` : `${R.total} messages`,
+      countBg: R.filtering ? 'var(--accent-soft)' : 'var(--surface-2)', countFg: R.filtering ? 'var(--accent-text)' : 'var(--text-2)',
+      authors: R.participants.map(id => D.person(id)).map(p => ({ id: p.id, name: p.name })),
+      hasThread: !!th, th: th || { replies: [] }, closeThread: () => this.setState({ thread: null }),
+      threadW: narrow ? '88%' : '400px', threadPos: narrow ? 'absolute' : 'relative', threadShadow: narrow ? 'var(--shadow-3)' : 'none',
+    });
+    if (print) {
+      const all = D.buildRows('C04PL7K2QXA', {}).rows;
+      const cut = all.findIndex(r => r.key === 'd2026-02-11');
+      v.pages = [{ n: 1, first: true, rows: all.slice(0, cut) }, { n: 2, first: false, rows: all.slice(cut) }];
+    }
+    return v;
+  }
+}
+</script>
+</body>
+</html>

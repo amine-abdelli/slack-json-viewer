@@ -11,9 +11,9 @@ conversations for you, straight from the Slack Web API — see
 
 ## Connecting to Slack
 
-The home screen offers **Connecter**: the app signs in to your workspace, lists
-your conversations, and loads one with its participants' names in a couple of
-clicks. Everything runs on the [Slack Web
+**Import → Continue with Slack**: the app signs in to your workspace, lists
+your conversations, and imports the ones you tick — with their participants'
+names — into the library. Everything runs on the [Slack Web
 API](https://api.slack.com/methods) — no `slackdump`, no CLI, no archive to
 unzip.
 
@@ -47,10 +47,10 @@ This tab only appears where the helper is available, or can be built because
 Go is installed — it is the one part that needs a browser, and therefore the
 container image. See [The QR helper](#the-qr-helper).
 
-Once signed in, the workspace appears at the top of the panel under
-**Déjà connecté**: one click on its card goes straight to its channels. The
-sign-in form is then folded away behind **Connecter un autre espace de
-travail**, so it only shows up when you actually want a second workspace.
+Once signed in, the workspace appears as a card under **Connected
+workspaces**: one click goes straight to its channels. The sign-in form is then
+folded away behind **Connect another workspace**, so it only shows up when you
+actually want a second workspace.
 
 ### What it fetches
 
@@ -82,17 +82,17 @@ error rather than loaded as a blank page: on Enterprise Grid a token is tied to
 one workspace, so a conversation listed by `users.conversations` is not always
 one `conversations.history` will serve.
 
-Once a conversation is open, the back arrow at the left of the header — or the
-browser's own back button — returns to the channel list as you left it, filter
-included; nothing is fetched again. Without the bridge, both close the
-conversation and return to the home screen.
+Several conversations are imported one after another, each saved as soon as it
+arrives. One that fails pauses the import with **Retry** / **Skip and
+continue**. Imported conversations stay in the library: reopening one fetches
+nothing.
 
 ### Credentials
 
 They never reach the front end. They are stored encrypted with AES-256-GCM
 under a key derived from your session cookie, so the file is useless to another
 session and to anyone holding only the volume — and unlike an in-memory cache,
-it survives a restart. The workspace then shows up as *Déjà connecté* on later
+it survives a restart. The workspace then shows up under *Connected workspaces* on later
 visits; the log-out icon deletes the stored credentials.
 
 On a shared instance each visitor gets an opaque session id in an httpOnly
@@ -161,9 +161,11 @@ npm run build:qrauth
 
 ## Features
 
-- **Loading** by drag and drop, through the file picker, or straight from
-  Slack (see [Connecting to Slack](#connecting-to-slack)).
-- **Slack design system**: aubergine sidebar, messages grouped by author
+- **Import** straight from Slack — several conversations at once — (see
+  [Connecting to Slack](#connecting-to-slack)), or open / drop `.json` files.
+- **Library** kept in the browser (IndexedDB): archives per workspace,
+  recently opened conversations, nothing sent to a server.
+- **Faithful rendering**: messages grouped by author
   (5-minute window), day separators, reactions, link previews, file
   attachments, mentions, lists, quotes, code blocks, `(edited)`.
 - **Full `rich_text` block rendering** (sections, lists, quotes, preformatted,
@@ -177,7 +179,7 @@ npm run build:qrauth
   side panel, as in Slack.
 - **Full-text search** with highlighting, plus an **author filter**. A thread
   is found by any of its messages.
-- **Light / dark theme** (Slack palettes).
+- **Light / dark theme** (Loquarium tokens, see `docs/design/`).
 - **Five languages** — French, English, Spanish, Chinese and Russian — picked
   from the browser's language, English for any other, and switchable from the
   language menu. The exported page is written in the language on screen.

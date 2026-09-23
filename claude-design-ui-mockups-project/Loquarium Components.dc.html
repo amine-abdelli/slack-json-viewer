@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Lato:wght@400;700;900&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="loquarium-tokens.css">
+</helmet>
+<div data-theme="{{ theme }}" style="background:var(--bg);color:var(--text);font-family:var(--font-app);font-size:14px;line-height:1.45;padding:28px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px">
+
+  <div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline"><span style="font:600 13px var(--font-app)">Composants · {{ themeLabel }}</span><span style="font:11px var(--font-mono);color:var(--text-3)">shadcn/ui → Loquarium</span></div>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px">
+    <div style="font:500 11px var(--font-mono);color:var(--text-3)">Button · h32/36/38 · r6</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button style="height:36px;display:inline-flex;align-items:center;gap:7px;padding:0 16px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app)"><i class="icon-file-output" style="font-size:14px"></i>Exporter</button>
+      <button style="height:36px;padding:0 14px;border-radius:6px;border:0;background:var(--accent-hover);color:var(--accent-fg);font:500 13px var(--font-app)">Survol</button>
+      <button style="height:36px;padding:0 14px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);outline:2px solid var(--focus);outline-offset:2px">Focus</button>
+      <button style="height:36px;padding:0 14px;border-radius:6px;border:0;background:var(--accent);opacity:.45;color:var(--accent-fg);font:500 13px var(--font-app)">Désactivé</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button style="height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app)">Secondaire</button>
+      <button style="height:36px;padding:0 14px;border-radius:6px;border:0;background:transparent;color:var(--text-2);font:500 13px var(--font-app)">Discret</button>
+      <button style="height:36px;padding:0 14px;border-radius:6px;border:0;background:var(--danger);color:#fff;font:500 13px var(--font-app)">Supprimer l’archive</button>
+      <button aria-label="Icône" style="width:32px;height:32px;border:0;border-radius:6px;background:var(--surface-2);color:var(--text-2);display:grid;place-items:center"><i class="icon-at-sign" style="font-size:16px"></i></button>
+      <button aria-label="Icône active" style="width:32px;height:32px;border:0;border-radius:6px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center"><i class="icon-list-filter" style="font-size:16px"></i></button>
+    </div>
+  </section>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px">
+    <div style="font:500 11px var(--font-mono);color:var(--text-3)">Input · h36 · r6</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="height:36px;border:1px solid var(--border-strong);border-radius:6px;display:flex;align-items:center;padding:0 10px;color:var(--text-3)">Nom de la personne</div>
+      <div style="height:36px;border:1px solid var(--focus);box-shadow:0 0 0 3px var(--accent-soft);border-radius:6px;display:flex;align-items:center;padding:0 10px">Julie Mo<span style="width:1px;height:16px;background:var(--text)"></span></div>
+      <div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;border:1px solid var(--danger);border-radius:6px;display:flex;align-items:center;padding:0 10px;font:13px var(--font-mono)">acme corp</div><span style="font-size:12px;color:var(--danger)">Uniquement lettres, chiffres et tirets.</span></div>
+      <div style="height:36px;border:1px solid var(--border-strong);border-radius:6px;display:flex;overflow:hidden"><span style="flex:1;display:flex;align-items:center;padding:0 10px;font:13px var(--font-mono)">acme</span><span style="padding:0 10px;display:grid;place-items:center;background:var(--surface-2);border-left:1px solid var(--border);color:var(--text-3);font:13px var(--font-mono)">.slack.com</span></div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px">
+      <span style="display:flex;gap:8px;align-items:center"><span style="width:16px;height:16px;border-radius:4px;background:var(--accent);display:grid;place-items:center;color:var(--accent-fg)"><i class="icon-check" style="font-size:11px"></i></span>Case cochée</span>
+      <span style="display:flex;gap:8px;align-items:center"><span style="width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border-strong);box-sizing:border-box"></span>Case vide</span>
+      <span style="display:flex;gap:8px;align-items:center"><span style="width:30px;height:18px;border-radius:9px;background:var(--accent);position:relative"><span style="position:absolute;top:2px;left:14px;width:14px;height:14px;border-radius:50%;background:#fff"></span></span>Interrupteur</span>
+      <span style="display:inline-flex;padding:2px;border-radius:7px;background:var(--surface-2);gap:2px"><span style="padding:3px 10px;border-radius:5px;background:var(--surface);box-shadow:var(--shadow-1)">Code QR</span><span style="padding:3px 10px;color:var(--text-2)">Connexion Slack</span></span>
+    </div>
+  </section>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px">
+    <div style="font:500 11px var(--font-mono);color:var(--text-3)">Badge · Pill · Kbd</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span style="font:500 11px var(--font-app);padding:2px 6px;border-radius:4px;border:1px solid var(--border-strong);color:var(--text-2)">Gratuit</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font:600 11px var(--font-app);padding:2px 7px;border-radius:4px;background:var(--accent-soft);color:var(--accent-text)"><i class="icon-lock" style="font-size:10px"></i>Pro</span>
+      <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--success-soft);color:var(--success)">Gratuit</span>
+      <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface-3);color:var(--text-2)">archivé</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 6px;border-radius:4px;background:var(--surface-2);color:var(--text-3)"><i class="icon-hard-drive" style="font-size:11px"></i>Sur l’appareil</span>
+      <span style="font:600 11px var(--font-app);padding:2px 8px;border-radius:10px;background:var(--warning-soft);color:var(--warning)">non résolu</span>
+      <span style="font:500 12px var(--font-app);padding:2px 7px;border-radius:4px;background:var(--accent-soft);color:var(--accent-text)">3 / 12 messages</span>
+      <kbd style="font:11px var(--font-mono);color:var(--text-3);border:1px solid var(--border);border-radius:4px;padding:0 4px">⌘K</kbd>
+      <span style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:var(--surface-3);color:var(--text-2)">HTML</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--c-bg);padding:10px;border-radius:6px;font-family:var(--font-read)">
+      <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:12px;background:var(--c-reaction-bg);border:1px solid var(--c-reaction-border);font:700 12px var(--font-read);color:var(--c-text)"><span style="font-size:14px">👍</span>3</span>
+      <span style="font:700 13px var(--font-read);padding:3px 14px;border:1px solid var(--c-divider);border-radius:14px;color:var(--c-text)">Aujourd’hui</span>
+      <span style="font:700 13px var(--font-read);padding:3px 14px;border:1px solid var(--c-divider);border-radius:14px;color:var(--c-text)">Hier</span>
+      <span style="font:700 13px var(--font-read);padding:3px 14px;border:1px solid var(--c-divider);border-radius:14px;color:var(--c-text)">Mardi 10 février 2026</span>
+      <span style="background:var(--c-mention-bg);color:var(--c-mention-fg);padding:0 2px;border-radius:3px">@Inès Haddad</span>
+      <span style="background:var(--c-here-bg);color:var(--c-here-fg);padding:0 2px;border-radius:3px">@here</span>
+      <mark style="background:var(--c-hl);color:var(--c-hl-fg);border-radius:2px;padding:0 1px">recette</mark>
+    </div>
+  </section>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:6px">
+    <div style="font:500 11px var(--font-mono);color:var(--text-3);margin-bottom:4px">List row · h30 (nav) / h44 (picker)</div>
+    <div style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:6px;color:var(--text-2);font-size:13px"><i class="icon-hash" style="font-size:14px"></i>general</div>
+    <div style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:6px;background:var(--surface-2);color:var(--text-2);font-size:13px"><i class="icon-lock" style="font-size:14px"></i>incident-2026-03-12<span style="margin-left:auto;font-size:11px;color:var(--text-3)">survol</span></div>
+    <div style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent-text);font:600 13px var(--font-app)"><i class="icon-hash" style="font-size:14px"></i>product-launch<span style="margin-left:auto;font-weight:400;font-size:11px">actif</span></div>
+    <div style="min-height:44px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:6px;background:var(--accent-soft);font-size:14px;margin-top:6px"><span style="width:16px;height:16px;border-radius:4px;background:var(--accent);display:grid;place-items:center;color:var(--accent-fg)"><i class="icon-check" style="font-size:11px"></i></span><i class="icon-hash" style="font-size:15px;color:var(--text-3)"></i><span style="font-weight:500">product-launch</span><span style="font:11.5px var(--font-mono);color:var(--text-3)">C04PL7K2QXA</span><span style="margin-left:auto;font-size:12px;color:var(--text-3)">18 membres</span></div>
+  </section>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:8px">
+    <div style="font:500 11px var(--font-mono);color:var(--text-3)">Banner · Toast</div>
+    <div style="display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:6px;background:var(--danger-soft);color:var(--danger);font-size:13px"><i class="icon-circle-alert" style="font-size:15px"></i><span style="flex:1"><b style="font-weight:600">Échec de l’export :</b> <span style="color:var(--text)">stockage plein.</span></span><i class="icon-x" style="font-size:14px"></i></div>
+    <div style="display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:6px;background:var(--warning-soft);font-size:13px"><i class="icon-user-round-x" style="font-size:15px;color:var(--warning)"></i><span style="flex:1">3 identifiants absents de l’annuaire.</span><b style="color:var(--warning);font-weight:600">Leur donner un nom →</b></div>
+    <div style="display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:6px;background:var(--info-soft);color:var(--text-2);font-size:13px"><i class="icon-wifi-off" style="font-size:15px"></i>Hors ligne — vos archives restent consultables.</div>
+    <div style="display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:6px;background:var(--success-soft);color:var(--success);font-size:13px"><i class="icon-circle-check" style="font-size:15px"></i>Code reconnu · acme.slack.com</div>
+    <div style="align-self:flex-start;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:var(--inverse);color:var(--inverse-fg);font-size:13px;box-shadow:var(--shadow-2)"><i class="icon-circle-check" style="font-size:15px"></i>Nom enregistré sur cet appareil</div>
+  </section>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px">
+    <div style="font:500 11px var(--font-mono);color:var(--text-3)">Stepper · Progress</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center"><i class="icon-check" style="font-size:11px"></i></span>Source</span><span style="width:20px;height:1px;background:var(--border-strong)"></span>
+      <span style="display:flex;align-items:center;gap:6px;font-weight:600"><span style="width:20px;height:20px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent-text);display:grid;place-items:center;font-size:11px;box-sizing:border-box">2</span>Connexion</span><span style="width:20px;height:1px;background:var(--border-strong)"></span>
+      <span style="display:flex;align-items:center;gap:6px;color:var(--text-3)"><span style="width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border-strong);display:grid;place-items:center;font-size:11px;box-sizing:border-box">3</span>Conversations</span>
+    </div>
+    <div style="height:6px;border-radius:3px;background:var(--surface-3)"><div style="width:62%;height:100%;border-radius:3px;background:var(--accent)"></div></div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+      <span style="display:flex;gap:8px;align-items:center"><i class="icon-circle-check" style="color:var(--success);font-size:14px"></i>1 200 messages récupérés</span>
+      <span style="display:flex;gap:8px;align-items:center"><i class="icon-loader" style="color:var(--accent-text);font-size:14px"></i>12/38 fils récupérés</span>
+      <span style="display:flex;gap:8px;align-items:center;color:var(--text-3)"><i class="icon-circle" style="color:var(--border-strong);font-size:14px"></i>24 membres à résoudre</span>
+    </div>
+  </section>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px">
+    <div style="font:500 11px var(--font-mono);color:var(--text-3)">Empty state · Locked prompt</div>
+    <div style="border:1px dashed var(--border-strong);border-radius:8px;padding:18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--text-3)"><i class="icon-search-x" style="font-size:17px"></i></span><b style="font-weight:600;font-size:13.5px">Aucun message ne correspond à cette recherche.</b><span style="font-size:12.5px;color:var(--accent-text)">Effacer la recherche</span></div>
+    <div style="padding:14px;border-radius:8px;background:var(--accent-soft);display:flex;gap:12px;align-items:center"><i class="icon-lock" style="font-size:16px;color:var(--accent-text)"></i><div style="flex:1;font-size:13px"><b style="font-weight:600;color:var(--accent-text)">Dossier de preuve · Pro</b><div style="color:var(--text-2)">PDF + HTML + JSON, empreintes SHA-256.</div></div><span style="height:30px;display:grid;place-items:center;padding:0 12px;border-radius:6px;background:var(--accent);color:var(--accent-fg);font:500 12.5px var(--font-app)">Découvrir Pro</span></div>
+  </section>
+
+  <section style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+    <div style="width:100%;font:500 11px var(--font-mono);color:var(--text-3)">DropdownMenu · Tooltip · Sheet header</div>
+    <div style="width:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-3);padding:4px;font-size:13px">
+      <div style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:5px">Langue du navigateur</div>
+      <div style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:5px;background:var(--surface-2)">✓ Français</div>
+      <div style="height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:5px">Русский</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;flex:1;min-width:160px">
+      <span style="align-self:flex-start;padding:5px 8px;border-radius:5px;background:var(--inverse);color:var(--inverse-fg);font-size:12px">Mardi 10 février 2026 à 08:29</span>
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow-2)"><div style="height:44px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--border);font-weight:600">Exporter<i class="icon-x" style="margin-left:auto;font-size:15px;color:var(--text-3)"></i></div><div style="height:40px;background:var(--surface-2)"></div></div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() { const t = this.props.theme || 'light'; return { theme: t, themeLabel: t === 'dark' ? 'sombre' : 'clair' }; }
+}
+</script>
+</body>
+</html>
