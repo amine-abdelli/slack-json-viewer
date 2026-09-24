@@ -20,8 +20,12 @@ import type { ChannelSummary } from "./bridge-types";
 export const ALL_CHANNEL_TYPES = "public_channel,private_channel,mpim,im";
 
 const PAGE_SIZE = 1000;
-/** `conversations.history` is happier with smaller pages than the maximum. */
-const HISTORY_PAGE_SIZE = 200;
+/**
+ * The largest page `conversations.history` and `conversations.replies` accept.
+ * Slack suggests 200, but every page is one request against the rate limit:
+ * 999 means five times fewer of them on a long conversation.
+ */
+const HISTORY_PAGE_SIZE = 999;
 
 /** Guards against a runaway cursor loop. */
 const MAX_LIST_PAGES = 30;
@@ -33,7 +37,14 @@ const USER_CONCURRENCY = 8;
 const THREAD_CONCURRENCY = 4;
 
 const MAX_USERS = 3000;
+/** Retries on a transient failure (5xx, network), not on a rate limit. */
 const MAX_RETRIES = 3;
+/**
+ * Consecutive rate limits one request tolerates before giving up. Each one
+ * waits as long as Slack asks, so this only trips when Slack never lets it
+ * through.
+ */
+const MAX_RATE_LIMITS = 12;
 /** Never sleep longer than this on a 429, however long Slack asks for. */
 const MAX_RETRY_WAIT_MS = 60_000;
 
@@ -74,7 +85,7 @@ export type Transport = (
  */
 export type ApiText =
   | { key: "rateLimitedWait"; params: { seconds: number } }
-  | { key: "rateLimitedRetry" }
+  | { key: "transientRetry"; params: { method: string } }
   | { key: "slackHttp"; params: { status: number; method: string } }
   | { key: "slackRefused"; params: { method: string; code: string } }
   | { key: "conversationsFetched"; count: number }
@@ -87,7 +98,8 @@ export type ApiText =
   | { key: "noChannelInfo"; params: { channel: string } }
   | { key: "emptyHistory" }
   | { key: "threadsToFetch"; count: number }
-  | { key: "threadsFetched"; params: { done: number; total: number } };
+  | { key: "threadsFetched"; params: { done: number; total: number } }
+  | { key: "threadsReused"; count: number };
 
 export interface ApiContext {
   transport: Transport;
@@ -205,16 +217,71 @@ export function isAuthError(err: unknown): boolean {
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(new Error("aborted"));
-      },
-      { once: true },
-    );
+    if (signal?.aborted) return reject(new Error("aborted"));
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new Error("aborted"));
+    };
+    // Removed on the way out: a long import sleeps thousands of times.
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Rate limits                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Shares Slack's rate-limit pauses between the calls of one session, per
+ * method (Slack counts limits per method and workspace).
+ *
+ * Slack's limits are a number of calls per window: going as fast as allowed
+ * and then waiting the `Retry-After` it gives is already the best throughput —
+ * spacing calls out evenly was tried and only made imports slower. What went
+ * wrong was the waiting: each worker met its own 429, slept on its own, and
+ * the others kept firing into a limit already known to be hit. Here the first
+ * 429 pauses the whole method, every call waits it out once, and the pause is
+ * announced once.
+ */
+class RateGate {
+  private pausedUntil = new Map<ReadMethod, number>();
+
+  /** Resolves once `method` is not paused. */
+  async acquire(method: ReadMethod, signal?: AbortSignal): Promise<void> {
+    for (;;) {
+      const wait = (this.pausedUntil.get(method) ?? 0) - Date.now();
+      if (wait <= 0) return;
+      await sleep(wait, signal);
+    }
+  }
+
+  /**
+   * Records a 429. Returns the pause in ms when this one started it, `null`
+   * when a pause already under way covers it — so it is announced once.
+   */
+  limited(method: ReadMethod, waitMs: number): number | null {
+    const until = Date.now() + waitMs;
+    // Calls already in flight when the pause began run into it too.
+    if (until <= (this.pausedUntil.get(method) ?? 0) + 1000) return null;
+    this.pausedUntil.set(method, until);
+    return waitMs;
+  }
+}
+
+/** One gate per session: the context outlives a single call. */
+const gates = new WeakMap<ApiContext, RateGate>();
+
+function gateFor(ctx: ApiContext): RateGate {
+  let gate = gates.get(ctx);
+  if (!gate) {
+    gate = new RateGate();
+    gates.set(ctx, gate);
+  }
+  return gate;
 }
 
 interface CallOptions {
@@ -224,21 +291,52 @@ interface CallOptions {
   tolerate?: readonly string[];
 }
 
+/** Statuses worth another try: Slack or the network hiccuped. */
+function isTransient(status: number): boolean {
+  return status === 0 || status === 408 || status >= 500;
+}
+
 async function call<T extends ApiResponse>(
   ctx: ApiContext,
   method: ReadMethod,
   params: Record<string, string>,
   { signal, onLog, tolerate = [] }: CallOptions = {},
 ): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
+  const gate = gateFor(ctx);
+  let limits = 0;
+  let failures = 0;
+
+  const rateLimited = async (waitMs: number) => {
+    const wait = Math.min(Math.max(waitMs, 1000), MAX_RETRY_WAIT_MS);
+    const announced = gate.limited(method, wait);
+    if (announced !== null) {
+      onLog?.(ctx.word({ key: "rateLimitedWait", params: { seconds: Math.ceil(announced / 1000) } }));
+    }
+  };
+
+  for (;;) {
     if (signal?.aborted) throw new Error("aborted");
-    const res = await ctx.transport(method, params, signal);
+    await gate.acquire(method, signal);
+    let res: TransportResponse;
+    try {
+      res = await ctx.transport(method, params, signal);
+    } catch (err) {
+      // `fetch` rejects with a TypeError when the network drops; anything else
+      // (an extension that is not there, an abort) is not worth a retry.
+      if (signal?.aborted || !(err instanceof TypeError) || failures >= MAX_RETRIES) throw err;
+      res = { status: 0 };
+    }
 
     // Slack throttles with 429 and says how long to wait.
-    if (res.status === 429 && attempt < MAX_RETRIES) {
-      const wait = Math.min((res.retryAfter || 1) * 1000, MAX_RETRY_WAIT_MS);
-      onLog?.(ctx.word({ key: "rateLimitedWait", params: { seconds: Math.round(wait / 1000) } }));
-      await sleep(wait, signal);
+    if (res.status === 429 && limits < MAX_RATE_LIMITS) {
+      limits += 1;
+      await rateLimited((res.retryAfter || 1) * 1000);
+      continue;
+    }
+    if (isTransient(res.status) && failures < MAX_RETRIES) {
+      failures += 1;
+      onLog?.(ctx.word({ key: "transientRetry", params: { method } }));
+      await sleep(2000 * failures, signal);
       continue;
     }
     if (res.status < 200 || res.status >= 300) {
@@ -252,9 +350,10 @@ async function call<T extends ApiResponse>(
     if (!body.ok) {
       const code = body.error ?? "unknown_error";
       if (tolerate.includes(code)) return body;
-      if (code === "ratelimited" && attempt < MAX_RETRIES) {
-        onLog?.(ctx.word({ key: "rateLimitedRetry" }));
-        await sleep(1000 * (attempt + 1), signal);
+      // Some endpoints answer 200 with `ratelimited` rather than a 429.
+      if (code === "ratelimited" && limits < MAX_RATE_LIMITS) {
+        limits += 1;
+        await rateLimited(3000 * limits);
         continue;
       }
       throw new SlackApiError(ctx.word({ key: "slackRefused", params: { method, code } }), code);
@@ -509,18 +608,85 @@ async function conversationsReplies(
   return out;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Updating a conversation already imported                                   */
+/* -------------------------------------------------------------------------- */
+
+/** The fields of a thread root that say whether its thread changed. */
+interface ThreadRoot {
+  ts?: string;
+  thread_ts?: string;
+  reply_count?: number;
+  latest_reply?: string;
+  replies?: unknown[];
+}
+
+/** A new reply moves `latest_reply`; a deleted one lowers `reply_count`. */
+function threadStamp(root: ThreadRoot): string {
+  return `${root.reply_count ?? 0}:${root.latest_reply ?? ""}`;
+}
+
+/**
+ * The threads a stored copy of a conversation already holds in full, as
+ * `root ts → stamp`. Passed to `dumpConversation`, it spares a
+ * `conversations.replies` call for every thread nobody has written in since.
+ */
+export function knownThreads(previous: { messages?: readonly ThreadRoot[] }): Record<string, string> {
+  const known: Record<string, string> = {};
+  for (const m of previous.messages ?? []) {
+    if (!m.ts || m.thread_ts !== m.ts || !m.latest_reply) continue;
+    if (!Array.isArray(m.replies) || m.replies.length === 0) continue;
+    known[m.ts] = threadStamp(m);
+  }
+  return known;
+}
+
+/**
+ * Puts back, from the stored copy, the replies of the threads a dump skipped
+ * because they had not changed. Returns how many threads it filled.
+ */
+export function reuseReplies(
+  fresh: { messages?: ThreadRoot[] },
+  previous: { messages?: readonly ThreadRoot[] },
+): number {
+  const stored = new Map<string, ThreadRoot>();
+  for (const m of previous.messages ?? []) if (m.ts) stored.set(m.ts, m);
+  let filled = 0;
+  for (const root of fresh.messages ?? []) {
+    if (!root.ts || root.thread_ts !== root.ts || (root.reply_count ?? 0) === 0) continue;
+    if (Array.isArray(root.replies) && root.replies.length > 0) continue;
+    const old = stored.get(root.ts);
+    if (old && Array.isArray(old.replies) && old.replies.length > 0 && threadStamp(old) === threadStamp(root)) {
+      root.replies = old.replies;
+      filled += 1;
+    }
+  }
+  return filled;
+}
+
+export interface DumpOptions {
+  /** From `knownThreads`: threads whose replies need not be fetched again. */
+  known?: Record<string, string>;
+}
+
 /**
  * Dumps a whole conversation, threads included, in the shape the viewer reads.
  *
  * `conversations.history` returns roots only, newest first; each thread costs
  * one further call, which is why they are fetched a few at a time and progress
  * is reported as it goes.
+ *
+ * The history itself is always fetched whole — it is cheap with 999 messages a
+ * page, and it is how edits, reactions and deletions come through. Threads are
+ * the expensive part: with `known`, the unchanged ones are skipped, and the
+ * caller puts their replies back with `reuseReplies`.
  */
 export async function dumpConversation(
   ctx: ApiContext,
   channel: string,
   onLog?: LogFn,
   signal?: AbortSignal,
+  { known }: DumpOptions = {},
 ): Promise<Conversation> {
   const info = await conversationsInfo(ctx, channel, signal).catch((err) => {
     onLog?.(
@@ -543,9 +709,15 @@ export async function dumpConversation(
   // chronological makes it readable on its own.
   messages.sort((a, b) => Number(a.ts ?? 0) - Number(b.ts ?? 0));
 
-  const roots = messages.filter(
+  const threaded = messages.filter(
     (m) => typeof m.ts === "string" && m.thread_ts === m.ts && (m.reply_count ?? 0) > 0,
   );
+  const roots = known
+    ? threaded.filter((m) => known[m.ts!] !== threadStamp(m as ThreadRoot))
+    : threaded;
+  if (roots.length < threaded.length) {
+    onLog?.(ctx.word({ key: "threadsReused", count: threaded.length - roots.length }));
+  }
 
   if (roots.length > 0) {
     onLog?.(ctx.word({ key: "threadsToFetch", count: roots.length }));

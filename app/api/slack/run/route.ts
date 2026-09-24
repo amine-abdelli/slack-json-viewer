@@ -18,6 +18,15 @@ export const dynamic = "force-dynamic";
  */
 export const maxDuration = 300;
 
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value as object).every((v) => typeof v === "string")
+  );
+}
+
 function isRunRequest(value: unknown): value is RunRequest {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
@@ -26,7 +35,7 @@ function isRunRequest(value: unknown): value is RunRequest {
     case "auth-token":
       return typeof v.token === "string" && typeof v.cookie === "string";
     case "dump":
-      return typeof v.channel === "string";
+      return typeof v.channel === "string" && (v.known === undefined || isStringRecord(v.known));
     case "resolve-users":
       return Array.isArray(v.userIds) && v.userIds.every((id) => typeof id === "string");
     case "channels":
@@ -118,7 +127,7 @@ async function handle(request: Request) {
             data = await resolveUsers(jar, job.workspace, job.userIds, onLog, signal);
             break;
           case "dump":
-            data = await dumpChannel(jar, job.workspace, job.channel, onLog, signal);
+            data = await dumpChannel(jar, job.workspace, job.channel, onLog, signal, job.known);
             break;
         }
         send({ t: "done", data });

@@ -136,7 +136,8 @@ export const zh: Messages = {
       "应用（Application）标签页 → Cookies → 复制“d” Cookie 的值。",
     ],
     cookiePlaceholder: "xoxd-…（“d” Cookie）",
-    tokenNotice: "这些值可访问你的 Slack。它们不会返回浏览器：在服务器端加密，并与你的会话绑定。",
+    tokenNotice:
+      "这些值可访问你的 Slack。验证后，它们会加密保存在此浏览器的 Cookie 中——页面无法读取，服务器也不保存。登录状态保持 12 小时，或直到你退出。",
     filterPlaceholder: "搜索频道…",
     filterLabel: "按名称或 ID 筛选频道",
     filterHintByName: "按名称",
@@ -245,6 +246,8 @@ export const zh: Messages = {
     stepDone: "完成",
     stepDirectory: "名录",
     optional: "可选",
+    inLibrary: "已导入",
+    inLibraryHint: "已在资料库中：只会获取此后有变化的消息列。",
     privacy: "导入的会话保存在本设备上。打开的文件从不离开浏览器。",
     sourceTitle: "会话来自哪里？",
     sourceSubtitle: "连接工作区，精确选择要导入的内容。",
@@ -334,6 +337,7 @@ export const zh: Messages = {
   },
 
   archive: {
+    olderMessages: plural({ other: "显示之前的 {n} 条消息" }),
     navigator: "归档导航",
     filter: "名称、ID 或链接",
     filterLabel: "筛选会话",
@@ -484,8 +488,8 @@ export const zh: Messages = {
     },
     slackRefused: "Slack 拒绝了 {method}：{code}。",
     slackHttp: "Slack 对 {method} 返回了 {status}。",
-    rateLimitedWait: "Slack 正在限流，暂停 {seconds} 秒…",
-    rateLimitedRetry: "Slack 正在限流，正在重试…",
+    rateLimitedWait: "Slack 正在限流 — {seconds} 秒后继续…",
+    transientRetry: "Slack 未响应 {method}，正在重试…",
     conversationsFetched: plural({ other: "已获取 {n} 个对话" }),
     stoppedAfterPages: "已在 {max} 页后停止",
     usersResolved: "已解析 {done}/{total} 名成员",
@@ -498,5 +502,6 @@ export const zh: Messages = {
       "Slack 没有返回此对话的任何消息。如果对话并非为空，则此令牌无权访问 — 在 Enterprise Grid 中，令牌只绑定到一个特定的工作区。",
     threadsToFetch: plural({ other: "有 {n} 个消息列待获取…" }),
     threadsFetched: "已获取 {done}/{total} 个消息列",
+    threadsReused: plural({ other: "{n} 个消息列未变化，沿用现有副本" }),
   },
 };

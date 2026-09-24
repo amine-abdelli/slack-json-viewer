@@ -18,7 +18,6 @@ import {
   Plus,
   Puzzle,
   RefreshCw,
-  ChevronDown,
   ShieldCheck,
   SkipForward,
   Upload,
@@ -42,11 +41,13 @@ import type { Messages } from "@/lib/i18n/messages";
 import { useI18n } from "@/lib/i18n/react";
 import {
   FILES_ARCHIVE_ID,
+  loadConversation,
   saveConversations,
   slackArchiveId,
   type Archive,
 } from "@/lib/library/store";
 import { toImported } from "@/lib/library/summary";
+import { knownThreads, reuseReplies } from "@/lib/slack/api-core";
 import {
   BridgeClientError,
   fetchStatus,
@@ -147,6 +148,7 @@ interface DoneStats {
 export function ImportView({
   bridge,
   onBridgeChange,
+  archives,
   pendingFiles,
   onPendingConsumed,
   onPickFiles,
@@ -157,6 +159,8 @@ export function ImportView({
 }: {
   bridge: BridgeStatus | null;
   onBridgeChange: (status: BridgeStatus) => void;
+  /** To flag the conversations already imported: those are updated, not refetched. */
+  archives: Archive[];
   pendingFiles: File[] | null;
   onPendingConsumed: () => void;
   onPickFiles: () => void;
@@ -257,9 +261,6 @@ export function ImportView({
     | { state: "empty" }
     | { state: "error"; message: string };
   const [ext, setExt] = React.useState<ExtState>({ state: "checking" });
-  const [othersOpen, setOthersOpen] = React.useState<boolean | null>(null);
-  /** Folded unless used before: the extension is the way in for most people. */
-  const showOthers = othersOpen ?? connected;
 
   /** Looks for the extension, then for the Slack workspaces signed in to this browser. */
   const checkExtension = React.useCallback(async () => {
@@ -331,6 +332,11 @@ export function ImportView({
     };
   }, [channels, filter, m, locale]);
 
+  const inLibrary = React.useMemo(() => {
+    const archive = source ? archives.find((a) => a.id === slackArchiveId(source.workspace)) : null;
+    return new Set(archive?.conversations.map((c) => c.id) ?? []);
+  }, [archives, source]);
+
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -378,11 +384,20 @@ export function ImportView({
         while (!finished) {
           setLine(channel.id, { status: "running", right: undefined });
           try {
+            // Already in the library: only the threads that moved are fetched.
+            const previous = await loadConversation(slackArchiveId(wsp), channel.id).catch(
+              () => null,
+            );
+            const known = previous ? knownThreads(previous) : undefined;
             const raw = await src.dump(
               channel.id,
               (line) => setLine(channel.id, { right: line }),
               signal,
+              known && Object.keys(known).length > 0 ? known : undefined,
             );
+            if (previous && raw && typeof raw === "object") {
+              reuseReplies(raw as Parameters<typeof reuseReplies>[0], previous);
+            }
             const data = parseConversation(raw, `${channel.name || channel.id}.json`);
             if (!data.channel_id || data.channel_id === "unknown") data.channel_id = channel.id;
             if (!data.name) data.name = channel.name || channel.user || channel.id;
@@ -699,21 +714,11 @@ export function ImportView({
               />
 
               <section className="flex flex-col gap-5">
-                <button
-                  type="button"
-                  aria-expanded={showOthers}
-                  onClick={() => setOthersOpen(!showOthers)}
-                  className="flex items-center gap-2 self-start text-left"
-                >
-                  <ChevronDown
-                    className={cn("size-4 text-fg-3 transition-transform", !showOthers && "-rotate-90")}
-                  />
-                  <span>
-                    <span className="block text-[13px] font-semibold text-fg-2">{m.importer.otherMethods}</span>
-                    <span className="block text-[12px] text-fg-3">{m.importer.otherMethodsHint}</span>
-                  </span>
-                </button>
-                {!showOthers ? null : !bridge?.available ? (
+                <header>
+                  <h2 className="m-0 text-[13px] font-semibold text-fg-2">{m.importer.otherMethods}</h2>
+                  <p className="m-0 text-[12px] text-fg-3">{m.importer.otherMethodsHint}</p>
+                </header>
+                {!bridge?.available ? (
                   <p className="m-0 rounded-[6px] bg-info-soft px-3 py-2 text-[13px] text-fg-2">
                     {m.importer.bridgeOff}
                   </p>
@@ -967,6 +972,11 @@ export function ImportView({
                           <span className="font-medium break-words">{channelLabel(c, m)}</span>
                           <span className="font-mono text-[11.5px] text-fg-3">{c.id}</span>
                         </span>
+                        {inLibrary.has(c.id) ? (
+                          <span title={m.importer.inLibraryHint}>
+                            <Tag tone="brand">{m.importer.inLibrary}</Tag>
+                          </span>
+                        ) : null}
                         {c.isArchived ? <Tag>{m.connect.archived}</Tag> : null}
                         {c.memberCount > 0 ? (
                           <span className="text-[12px] whitespace-nowrap text-fg-3 tabular-nums">

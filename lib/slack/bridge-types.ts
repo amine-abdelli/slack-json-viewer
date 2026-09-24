@@ -29,7 +29,13 @@ export type RunRequest =
   | { action: "auth-token"; workspace: string; token: string; cookie: string }
   | { action: "channels"; workspace: string; memberOnly?: boolean }
   | { action: "resolve-users"; workspace: string; userIds: string[] }
-  | { action: "dump"; workspace: string; channel: string };
+  | {
+      action: "dump";
+      workspace: string;
+      channel: string;
+      /** Threads the library already holds, `root ts → stamp`: not fetched again. */
+      known?: Record<string, string>;
+    };
 
 /** One line of the NDJSON stream returned by `/api/slack/run`. */
 export type RunEvent =

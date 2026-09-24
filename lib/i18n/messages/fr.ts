@@ -161,7 +161,7 @@ export const fr = {
     ],
     cookiePlaceholder: "xoxd-… (cookie « d »)",
     tokenNotice:
-      "Ces valeurs donnent accès à votre Slack. Elles ne passent pas par le navigateur : elles sont chiffrées côté serveur, liées à votre session.",
+      "Ces valeurs donnent accès à votre Slack. Vérifiées une fois, elles sont gardées chiffrées dans un cookie de ce navigateur — la page ne peut pas les lire, le serveur ne les stocke pas. Vous restez connecté 12 h, ou jusqu'à la déconnexion.",
     filterPlaceholder: "Rechercher un canal…",
     filterLabel: "Filtrer les canaux par nom ou par ID",
     filterHintByName: "Par nom",
@@ -283,6 +283,8 @@ export const fr = {
     stepDone: "Terminé",
     stepDirectory: "Annuaire",
     optional: "Optionnel",
+    inLibrary: "Déjà importé",
+    inLibraryHint: "Déjà dans la bibliothèque : seuls les fils modifiés depuis seront récupérés.",
     privacy:
       "Les conversations importées sont stockées sur cet appareil. Les fichiers ouverts ne quittent jamais le navigateur.",
     sourceTitle: "D'où viennent les conversations ?",
@@ -398,6 +400,7 @@ export const fr = {
   },
 
   archive: {
+    olderMessages: plural({ one: "Afficher le message précédent", other: "Afficher les {n} messages précédents" }),
     navigator: "Navigateur de l'archive",
     filter: "Nom, ID ou lien",
     filterLabel: "Filtrer les conversations",
@@ -554,8 +557,8 @@ export const fr = {
     },
     slackRefused: "Slack a refusé {method} : {code}.",
     slackHttp: "Slack a répondu {status} à {method}.",
-    rateLimitedWait: "Slack limite les requêtes, pause de {seconds} s…",
-    rateLimitedRetry: "Slack limite les requêtes, nouvelle tentative…",
+    rateLimitedWait: "Slack limite le débit — reprise dans {seconds} s…",
+    transientRetry: "Slack ne répond pas pour {method}, nouvelle tentative…",
     conversationsFetched: plural({
       one: "{n} conversation récupérée",
       other: "{n} conversations récupérées",
@@ -574,6 +577,7 @@ export const fr = {
       other: "{n} fils de discussion à récupérer…",
     }),
     threadsFetched: "{done}/{total} fils récupérés",
+    threadsReused: plural({ one: "{n} fil inchangé, repris de la copie existante", other: "{n} fils inchangés, repris de la copie existante" }),
   },
 };
 

@@ -219,8 +219,18 @@ const RUNTIME = String.raw`
     } catch (e) {}
   });
   printBtn.addEventListener('click', function () { window.print(); });
+  var scroller = document.getElementById('slack-scroll');
+  // Set as soon as the reader moves: late-loading images must not pull them back down.
+  var readerMoved = false;
+  ['wheel', 'touchstart', 'mousedown', 'keydown'].forEach(function (type) {
+    scroller.addEventListener(type, function () { readerMoved = true; }, { passive: true });
+  });
+  function toLatest() {
+    if (!readerMoved) scroller.scrollTop = scroller.scrollHeight;
+  }
   topBtn.addEventListener('click', function () {
-    document.getElementById('slack-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+    readerMoved = true;
+    scroller.scrollTo({ top: 0, behavior: 'smooth' });
   });
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); search.focus(); search.select(); }
@@ -231,6 +241,10 @@ const RUNTIME = String.raw`
   });
 
   apply();
+
+  // Opens on the latest messages, as Slack does; the arrow button goes to the top.
+  toLatest();
+  window.addEventListener('load', toLatest);
 })();
 `;
 

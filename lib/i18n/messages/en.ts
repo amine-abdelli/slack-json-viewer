@@ -155,7 +155,7 @@ export const en: Messages = {
     ],
     cookiePlaceholder: "xoxd-… (“d” cookie)",
     tokenNotice:
-      "These values give access to your Slack. They do not go back to the browser: they are encrypted on the server, tied to your session.",
+      "These values give access to your Slack. Once checked, they are kept encrypted in a cookie of this browser — the page cannot read them, the server does not store them. You stay signed in for 12 hours, or until you sign out.",
     filterPlaceholder: "Search for a channel…",
     filterLabel: "Filter channels by name or ID",
     filterHintByName: "By name",
@@ -277,6 +277,8 @@ export const en: Messages = {
     stepDone: "Done",
     stepDirectory: "Directory",
     optional: "Optional",
+    inLibrary: "Imported",
+    inLibraryHint: "Already in the library: only threads that changed since will be fetched.",
     privacy:
       "Imported conversations are stored on this device. Opened files never leave the browser.",
     sourceTitle: "Where do the conversations come from?",
@@ -392,6 +394,7 @@ export const en: Messages = {
   },
 
   archive: {
+    olderMessages: plural({ one: "Show the earlier message", other: "Show {n} earlier messages" }),
     navigator: "Archive navigator",
     filter: "Name, ID or link",
     filterLabel: "Filter conversations",
@@ -547,8 +550,8 @@ export const en: Messages = {
     },
     slackRefused: "Slack refused {method}: {code}.",
     slackHttp: "Slack answered {status} to {method}.",
-    rateLimitedWait: "Slack is rate limiting, pausing for {seconds} s…",
-    rateLimitedRetry: "Slack is rate limiting, retrying…",
+    rateLimitedWait: "Slack is rate limiting — resuming in {seconds} s…",
+    transientRetry: "Slack did not answer {method}, retrying…",
     conversationsFetched: plural({
       one: "{n} conversation fetched",
       other: "{n} conversations fetched",
@@ -567,5 +570,6 @@ export const en: Messages = {
       other: "{n} threads to fetch…",
     }),
     threadsFetched: "{done}/{total} threads fetched",
+    threadsReused: plural({ one: "{n} thread unchanged, kept from the existing copy", other: "{n} threads unchanged, kept from the existing copy" }),
   },
 };

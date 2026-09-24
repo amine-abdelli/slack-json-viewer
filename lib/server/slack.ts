@@ -183,11 +183,12 @@ export async function dumpChannel(
   rawChannel: string,
   onLog?: LogFn,
   signal?: AbortSignal,
+  known?: Record<string, string>,
 ): Promise<Conversation> {
   const workspace = assertWorkspace(rawWorkspace);
   const channel = assertChannel(rawChannel);
   const creds = credentialsFor(jar, workspace);
-  return dumpConversation(creds, channel, onLog, signal);
+  return dumpConversation(creds, channel, onLog, signal, { known });
 }
 
 export { isAuthError };

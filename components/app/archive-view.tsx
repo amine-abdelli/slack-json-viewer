@@ -49,6 +49,9 @@ function navQuery(raw: string): string {
   return q.replace(/^[#@]/, "").toLowerCase();
 }
 
+/** Messages rendered when a conversation opens, and added per batch as the reader scrolls up. */
+const WINDOW_STEP = 150;
+
 export function ArchiveView({
   archives,
   route,
@@ -191,12 +194,68 @@ export function ArchiveView({
   const filtering = Boolean(query.trim() || author);
   const highlight = query.trim().length > 1 ? query.trim() : undefined;
 
+  /* ------------------------------------------------------- windowing */
+
+  // A conversation opens on its latest messages and renders only the last
+  // WINDOW_STEP of them; more are added as the reader nears the top. Tens of
+  // thousands of messages rendered at once took seconds to open and made every
+  // keystroke in the search lag.
+  const [limit, setLimit] = React.useState(WINDOW_STEP);
+  const windowKey = `${loadKey}|${query.trim()}|${author ?? ""}`;
+  const [seenWindowKey, setSeenWindowKey] = React.useState(windowKey);
+  if (seenWindowKey !== windowKey) {
+    setSeenWindowKey(windowKey);
+    setLimit(WINDOW_STEP);
+  }
+  const visible = React.useMemo(
+    () => (filtered.length > limit ? filtered.slice(filtered.length - limit) : filtered),
+    [filtered, limit],
+  );
+  const older = filtered.length - visible.length;
+
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
+  /** The scroll geometry just before older messages were added above. */
+  const anchor = React.useRef<{ height: number; top: number } | null>(null);
+
+  const showOlder = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || anchor.current) return;
+    anchor.current = { height: el.scrollHeight, top: el.scrollTop };
+    setLimit((n) => n + WINDOW_STEP);
+  }, []);
+
+  // New conversation or new filter: start from the latest messages.
+  React.useLayoutEffect(() => {
     if (!conversation) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [conversation]);
+  }, [conversation, windowKey]);
+
+  // Older messages were added above: keep the ones on screen where they were.
+  React.useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const before = anchor.current;
+    if (!el || !before) return;
+    anchor.current = null;
+    el.scrollTop = before.top + (el.scrollHeight - before.height);
+  }, [visible]);
+
+  // Near the top — well before reaching it — add the next batch. Observing
+  // again after each batch re-checks at once, in case it did not fill the view.
+  React.useEffect(() => {
+    const root = scrollRef.current;
+    const target = sentinelRef.current;
+    if (!root || !target || older === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) showOlder();
+      },
+      { root, rootMargin: "1200px 0px 0px 0px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [visible, older, showOlder]);
 
   /* ----------------------------------------------------------- keyboard */
 
@@ -362,7 +421,10 @@ export function ArchiveView({
             </div>
           ) : null}
 
-          <div ref={scrollRef} className="slack-scroll min-h-0 flex-1 overflow-auto pt-1 pb-7">
+          <div
+            ref={scrollRef}
+            className="slack-scroll min-h-0 flex-1 overflow-auto pt-1 pb-7 [overflow-anchor:none]"
+          >
             {loading ? (
               <div aria-busy="true" className="flex flex-col gap-3 px-5 py-6">
                 {[0, 1, 2, 3].map((i) => (
@@ -411,8 +473,20 @@ export function ArchiveView({
                     </LqButton>
                   </div>
                 ) : (
+                  <>
+                  {older > 0 ? (
+                    <div ref={sentinelRef} className="flex justify-center px-5 pt-2 pb-1">
+                      <button
+                        type="button"
+                        onClick={showOlder}
+                        className="rounded-full border border-border bg-surface px-3 py-1 text-[12px] font-medium text-fg-2 hover:bg-surface-2"
+                      >
+                        {p(m.archive.olderMessages, Math.min(WINDOW_STEP, older))}
+                      </button>
+                    </div>
+                  ) : null}
                   <MessageList
-                    messages={filtered}
+                    messages={visible}
                     directory={directory}
                     overrides={overrides}
                     highlight={highlight}
@@ -421,6 +495,7 @@ export function ArchiveView({
                     onOpenThread={setThread}
                     className="pt-0 pb-0"
                   />
+                  </>
                 )}
               </>
             )}

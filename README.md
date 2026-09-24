@@ -67,8 +67,19 @@ present — message authors, thread repliers, reaction voters, `<@…>` mentions
 bots — and resolves exactly those, eight requests in flight. Unknown or
 deactivated accounts are skipped rather than failing the batch.
 
-Slack's rate limiting is honoured: a `429` is retried after the delay Slack
-asks for, and progress is streamed to the panel throughout.
+Slack's rate limiting is honoured: the first `429` pauses every request of that
+kind for the delay Slack asks for — announced once, "resuming in N s" — and
+progress is streamed to the panel throughout. History and threads are read 999
+messages a page, the most Slack serves, so a long conversation costs five times
+fewer requests than at the usual 200.
+
+**Updating a conversation already imported** — ticked again in the picker,
+where it shows as *Imported* — refetches the history (cheap, and how edits and
+reactions come through) but only the threads that changed since: a thread
+whose `reply_count` and `latest_reply` are the same as in the stored copy keeps
+its replies from the library. On a busy channel with hundreds of threads, an
+update takes a handful of requests instead of hundreds. Edits or reactions on
+replies in an otherwise untouched thread are not picked up by an update.
 
 If a conversation comes back with no messages at all, that is reported as an
 error rather than loaded as a blank page: on Enterprise Grid a token is tied to
@@ -97,7 +108,7 @@ npm run dev        # or: npm run build && npm start
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SLACK_VIEWER_SECRET` | random per instance | encrypts the credential cookies — **set it** (16+ characters), or a restart signs everyone out |
+| `SLACK_VIEWER_SECRET` | a key made at each build | encrypts the credential cookies (16+ characters) — set it, or each new deployment signs everyone out |
 | `SLACK_VIEWER_SESSION_TTL_HOURS` | `12` | how long a token sign-in lasts |
 | `NEXT_PUBLIC_LOQUARIUM_EXTENSION_ID` | the unpacked extension's ID | the browser extension to talk to (set it once it is on the Chrome Web Store) |
 | `SLACK_API_BASE` | `https://slack.com/api` | point the API elsewhere, for tests |
@@ -108,6 +119,9 @@ npm run dev        # or: npm run build && npm start
   [Connecting to Slack](#connecting-to-slack)), or open / drop `.json` files.
 - **Library** kept in the browser (IndexedDB): archives per workspace,
   recently opened conversations, nothing sent to a server.
+- **Large conversations stay fluid**: a conversation opens on its latest 150
+  messages, and older ones are added as you scroll up (or with the button at
+  the top). Search and the author filter still cover the whole conversation.
 - **Faithful rendering**: messages grouped by author
   (5-minute window), day separators, reactions, link previews, file
   attachments, mentions, lists, quotes, code blocks, `(edited)`.
@@ -128,7 +142,8 @@ npm run dev        # or: npm run build && npm start
   language menu. The exported page is written in the language on screen.
 - **Export**, from the header menu, either way:
   - **a self-contained HTML page** — a single file, CSS and JS included, that
-    keeps search, the author filter, the theme, and a printable layout;
+    opens on the latest messages (an arrow goes back to the top) and keeps
+    search, the author filter, the theme, and a printable layout;
   - **the conversation as JSON** — the raw data, indented, and reloadable by
     this viewer.
 
@@ -202,7 +217,8 @@ vercel          # preview
 vercel --prod   # production
 ```
 
-Set `SLACK_VIEWER_SECRET` in the project's environment variables. Imports run
+Set `SLACK_VIEWER_SECRET` in the project's environment variables, so that a
+new deployment does not sign everyone out. Imports run
 as serverless functions limited to 300 s; the extension path does not go
 through the server at all.
 

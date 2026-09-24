@@ -96,6 +96,7 @@ export function dumpConversation(
   channel: string,
   onLog?: core.LogFn,
   signal?: AbortSignal,
+  options?: core.DumpOptions,
 ) {
-  return core.dumpConversation(contextFor(creds), channel, onLog, signal);
+  return core.dumpConversation(contextFor(creds), channel, onLog, signal, options);
 }
