@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { color-scheme: light dark; --brand: #4b3f72; --fg: #121419; --fg3: #5f6773; --bd: #e0e3e9; --bg2: #f0f2f5; }
+  @media (prefers-color-scheme: dark) { :root { --brand: #a194da; --fg: #e8eaee; --fg3: #8e96a2; --bd: #252a32; --bg2: #1a1e24; } }
+  body { margin: 0; width: 300px; font: 13px/1.45 system-ui, sans-serif; color: var(--fg); }
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--bd); font-weight: 600; }
+  header img { width: 22px; height: 22px; border-radius: 5px; }
+  main { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  p { margin: 0; color: var(--fg3); }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: var(--bg2); }
+  li span.dot { width: 6px; height: 6px; border-radius: 50%; background: #1f6a45; flex: none; }
+  li small { color: var(--fg3); margin-left: auto; font-family: ui-monospace, monospace; }
+  button { height: 32px; border-radius: 6px; font: 500 13px system-ui, sans-serif; cursor: pointer; }
+  .primary { border: 0; background: var(--brand); color: #fff; }
+  .secondary { border: 1px solid var(--bd); background: transparent; color: var(--fg); }
+</style>
+</head>
+<body>
+  <header><img src="icons/icon-48.png" alt="" /> Loquarium</header>
+  <main>
+    <p id="status"></p>
+    <ul id="teams"></ul>
+    <button id="refresh" class="secondary"></button>
+    <button id="open" class="primary"></button>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

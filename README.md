@@ -19,6 +19,15 @@ unzip.
 
 ### Signing in
 
+**Browser extension — recommended.** Install the Loquarium extension in Chrome
+or Edge (see [`extension/README.md`](extension/README.md)), sign in to Slack
+at `app.slack.com` in the same browser, then **Continue with Slack**: the
+workspaces signed in to the browser show up as cards. Nothing to copy, no
+password to type, and the messages go straight from Slack to the page — no
+server in between, so it works on any host, Vercel included.
+
+The fallback below sits under **Other ways to connect**.
+
 **Token and cookie** — works anywhere, needs nothing installed:
 
 1. Open Slack in a browser (`app.slack.com`), signed in to the workspace.
@@ -30,22 +39,6 @@ unzip.
 
 The credentials are checked against `auth.test` immediately, so a bad paste is
 reported at once rather than at the first real request.
-
-**QR code** — shorter, when it works. The code *is* the credential: it encodes
-a one-shot sign-in link. Nothing is scanned with a phone: the helper decodes
-the link and consumes it in a browser it drives itself, on the server. In a signed-in Slack client: click the **workspace name**
-(not the logo) → **Sign in on mobile** → right-click the QR code → **Copy Image
-URL**, then paste. The link expires within a minute and is single-use, so copy
-a fresh one per attempt.
-
-On a workspace behind SSO, Slack then sends that browser to your company's
-sign-in page. The panel shows it live: click and type straight into the picture
-to authenticate, and the sign-in completes by itself once Slack sets its
-session cookie.
-
-This tab only appears where the helper is available, or can be built because
-Go is installed — it is the one part that needs a browser, and therefore the
-container image. See [The QR helper](#the-qr-helper).
 
 Once signed in, the workspace appears as a card under **Connected
 workspaces**: one click goes straight to its channels. The sign-in form is then
@@ -89,75 +82,25 @@ nothing.
 
 ### Credentials
 
-They never reach the front end. They are stored encrypted with AES-256-GCM
-under a key derived from your session cookie, so the file is useless to another
-session and to anyone holding only the volume — and unlike an in-memory cache,
-it survives a restart. The workspace then shows up under *Connected workspaces* on later
-visits; the log-out icon deletes the stored credentials.
-
-On a shared instance each visitor gets an opaque session id in an httpOnly
-cookie and a directory of its own, so no one can reach anyone else's workspace.
-Sessions untouched for the TTL are swept.
+They never reach the page. Each workspace is one httpOnly cookie in **your own
+browser**, holding the token and `d` cookie encrypted with AES-256-GCM under a
+key derived from `SLACK_VIEWER_SECRET`. The server keeps nothing between
+requests — no database, no files — so it runs on any stateless host, and no
+visitor can ever reach another's workspace. The log-out icon clears the cookie.
 
 ### Running it
 
-The token path needs only network access, so a plain `npm run build && npm
-start` — or a Vercel deployment — is enough.
-
-The container image adds the QR helper, Chromium and a virtual display:
-
 ```bash
-docker compose up --build
-```
-
-Or without compose:
-
-```bash
-docker build -t slack-viewer .
-docker run -p 3000:3000 -v slack-viewer-data:/data --shm-size=512m \
-  -e SLACK_VIEWER_SECRET=$(openssl rand -hex 32) slack-viewer
+npm install
+npm run dev        # or: npm run build && npm start
 ```
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SLACK_VIEWER_SECRET` | random per boot | binds stored credentials to a session cookie — **set it**, or a restart signs everyone out |
-| `SLACK_VIEWER_DATA_DIR` | `/data` in the image | where sessions are kept |
-| `SLACK_VIEWER_SESSION_TTL_HOURS` | `12` | how long an idle session keeps its credentials |
-| `SLACK_VIEWER_MAX_LOGINS` | `2` | concurrent QR logins; each starts a Chromium |
-| `SLACK_VIEWER_QRAUTH_BIN` | found on `PATH` | override the QR helper |
-| `CHROME_BIN` | auto-detected | override the browser the QR login drives |
+| `SLACK_VIEWER_SECRET` | random per instance | encrypts the credential cookies — **set it** (16+ characters), or a restart signs everyone out |
+| `SLACK_VIEWER_SESSION_TTL_HOURS` | `12` | how long a token sign-in lasts |
+| `NEXT_PUBLIC_LOQUARIUM_EXTENSION_ID` | the unpacked extension's ID | the browser extension to talk to (set it once it is on the Chrome Web Store) |
 | `SLACK_API_BASE` | `https://slack.com/api` | point the API elsewhere, for tests |
-
-Give the container a real `/dev/shm` (`--shm-size=512m`); Chromium crashes on
-the 64 MB default.
-
-### The QR helper
-
-`tools/qrauth` is a small Go program, the one piece that is not pure API: it
-decodes the QR code, opens the sign-in link in a browser it drives with
-[rod](https://github.com/go-rod/rod), waits for the session `d` cookie — which
-Slack sets the moment the link is consumed — and reads the API token off
-`/ssb/redirect`.
-
-It deliberately does not use `slackauth.QRAuth`, which instead waits for the
-whole Slack web client to boot and then intercepts an `api.features` request:
-that depends on an interstitial being dismissed and a heavy SPA loading, and it
-hangs indefinitely when either does not happen. While it waits, the helper
-reports the page the browser is actually on, and on failure writes a screenshot
-of it.
-
-The helper launches a *headful* browser by default, so the container runs an
-`Xvfb` display; the app user also gets a writable `$HOME`, which Chromium needs
-for its crashpad and XDG directories. Outside Docker on a headless Linux box,
-run it under `xvfb-run`, or set `QRAUTH_HEADLESS=1`. On macOS a window opens
-briefly — that is normal.
-
-To build it ahead of time (it is compiled on first use otherwise, if Go is
-present):
-
-```bash
-npm run build:qrauth
-```
 
 ## Features
 
@@ -243,14 +186,15 @@ npm run build
 ```
 
 How the pieces fit together — the viewer, the bridge, the `run` protocol,
-sessions and credentials, the QR helper — is described in
+credentials, the browser extension — is described in
 [docs/architecture.md](docs/architecture.md). Where the project could go as a
 product — market, ideas, strategy, roadmap — is in [docs/product/](docs/product/README.md).
 
 ## Deploying
 
-The viewer and the token sign-in need only network access, so any Next.js host
-works — Vercel included:
+The viewer, the extension path and the token sign-in need only network access,
+so any Next.js host works — Vercel included. List the production domain in the
+extension's `externally_connectable` (see [`extension/README.md`](extension/README.md)).
 
 ```bash
 npm i -g vercel
@@ -258,9 +202,9 @@ vercel          # preview
 vercel --prod   # production
 ```
 
-The QR sign-in is the exception: it drives a real browser, so it needs the
-container image (see [Running it](#running-it)). Where the helper is absent the
-panel simply hides that tab.
+Set `SLACK_VIEWER_SECRET` in the project's environment variables. Imports run
+as serverless functions limited to 300 s; the extension path does not go
+through the server at all.
 
 ## Stack
 

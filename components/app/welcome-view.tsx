@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, FileCode2, HardDrive, QrCode, ShieldCheck } from "lucide-react";
+import { ArrowRight, FileCode2, HardDrive, Puzzle, ShieldCheck } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/slack/language-switcher";
 import { Message } from "@/components/slack/message";
@@ -76,7 +76,7 @@ export function WelcomeView({
 
   const hasLibrary = (archiveCount ?? 0) > 0;
   const points = [
-    { icon: <QrCode />, text: m.welcome.points[0] },
+    { icon: <Puzzle />, text: m.welcome.points[0] },
     { icon: <HardDrive />, text: m.welcome.points[1] },
     { icon: <FileCode2 />, text: m.welcome.points[2] },
   ];

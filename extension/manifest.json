@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Loquarium for Slack",
+  "short_name": "Loquarium",
+  "version": "0.1.0",
+  "description": "Lets Loquarium import the Slack conversations you can already read, using the Slack session open in this browser.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw6PtFp13EWsriC50Fqmy2KRj3bLsRsFS1b0CK/Y0S7z1fKRAHh8cikou1Uu7MiOfvAIlzpM4S9Kpja0K/ZqjRPbMvL5KM2Ma9bweBuXxh3YJiLHZhMBZQlSwMpdIXgKTtwYke35ooneRFz5XvsYRrYgDxd92snM/oQHNBZd9anxHBX2B7ZrvQh52klYF3pelGCiqZQNDxu5Ces7DONorENa0YZxSOmT/FcxjQ0XeV9681u9YGENbwfXrMae5A82bQPb2Ke44a3FAMLYsIsuNRiBmoWzxhFM+qwJ5p1RHVUnAssHyV5S+sjnd0an9d9p13JLm0Abd22ybxS6Qz34jCwIDAQAB",
+  "minimum_chrome_version": "116",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["scripting", "storage"],
+  "host_permissions": ["https://*.slack.com/*"],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost/*",
+      "http://127.0.0.1/*",
+      "https://loquarium.vercel.app/*"
+    ]
+  },
+  "action": {
+    "default_title": "Loquarium",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

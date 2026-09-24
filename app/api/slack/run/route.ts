@@ -1,5 +1,4 @@
 import {
-  authenticateWithQr,
   authenticateWithToken,
   BridgeError,
   dumpChannel,
@@ -7,26 +6,23 @@ import {
   resolveUsers,
   SlackApiError,
 } from "@/lib/server/slack";
-import {
-  isSecureRequest,
-  resolveSession,
-  sessionCookieHeader,
-} from "@/lib/server/session";
+import { CredentialJar } from "@/lib/server/credentials";
 import { localeFromRequest, sm, withLocale } from "@/lib/i18n/server";
 import type { RunEvent, RunRequest } from "@/lib/slack/bridge-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-/** Dumping a busy channel can take a while; don't let the platform cut it short. */
-export const maxDuration = 3600;
+/**
+ * Dumping a busy channel can take a while. 300 s is the most every Vercel plan
+ * allows; a self-hosted server does not enforce it.
+ */
+export const maxDuration = 300;
 
 function isRunRequest(value: unknown): value is RunRequest {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   if (typeof v.workspace !== "string") return false;
   switch (v.action) {
-    case "auth-qr":
-      return typeof v.qrImage === "string";
     case "auth-token":
       return typeof v.token === "string" && typeof v.cookie === "string";
     case "dump":
@@ -65,7 +61,32 @@ async function handle(request: Request) {
   }
   const job = body;
   const signal = request.signal;
-  const session = resolveSession(request);
+  const jar = new CredentialJar(request);
+
+  // Signing in sets a cookie, and headers must be sent before the body: run
+  // it to the end first (a single auth.test), then answer in one go.
+  if (job.action === "auth-token") {
+    const events: RunEvent[] = [];
+    try {
+      const data = await authenticateWithToken(
+        jar,
+        job.workspace,
+        job.token,
+        job.cookie,
+        (m) => events.push({ t: "log", m }),
+        signal,
+      );
+      events.push({ t: "done", data });
+    } catch (err) {
+      events.push(toErrorEvent(err));
+    }
+    const headers = new Headers({
+      "content-type": "application/x-ndjson; charset=utf-8",
+      "cache-control": "no-store",
+    });
+    for (const cookie of jar.setCookieHeaders()) headers.append("set-cookie", cookie);
+    return new Response(events.map((e) => JSON.stringify(e)).join("\n") + "\n", { headers });
+  }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -84,31 +105,9 @@ async function handle(request: Request) {
       try {
         let data: unknown;
         switch (job.action) {
-          case "auth-qr":
-            data = await authenticateWithQr(
-              session.id,
-              job.workspace,
-              job.qrImage,
-              onLog,
-              signal,
-              // The live view: frames of the server-side browser, and the id
-              // the panel sends its clicks and keystrokes back with.
-              (event) => send(event),
-            );
-            break;
-          case "auth-token":
-            data = await authenticateWithToken(
-              session.id,
-              job.workspace,
-              job.token,
-              job.cookie,
-              onLog,
-              signal,
-            );
-            break;
           case "channels":
             data = await listChannels(
-              session.id,
+              jar,
               job.workspace,
               job.memberOnly !== false,
               onLog,
@@ -116,23 +115,16 @@ async function handle(request: Request) {
             );
             break;
           case "resolve-users":
-            data = await resolveUsers(session.id, job.workspace, job.userIds, onLog, signal);
+            data = await resolveUsers(jar, job.workspace, job.userIds, onLog, signal);
             break;
           case "dump":
-            data = await dumpChannel(session.id, job.workspace, job.channel, onLog, signal);
+            data = await dumpChannel(jar, job.workspace, job.channel, onLog, signal);
             break;
         }
         send({ t: "done", data });
       } catch (err) {
-        if (signal.aborted) {
-          closed = true;
-        } else if (err instanceof BridgeError) {
-          send({ t: "error", m: err.message, detail: err.detail });
-        } else if (err instanceof SlackApiError) {
-          send({ t: "error", m: err.message, detail: err.code });
-        } else {
-          send({ t: "error", m: err instanceof Error ? err.message : sm().unexpectedError });
-        }
+        if (signal.aborted) closed = true;
+        else send(toErrorEvent(err));
       } finally {
         closed = true;
         try {
@@ -150,8 +142,11 @@ async function handle(request: Request) {
     // keeps nginx and friends from buffering the progress stream
     "x-accel-buffering": "no",
   });
-  if (session.isNew) {
-    headers.append("set-cookie", sessionCookieHeader(session, isSecureRequest(request)));
-  }
   return new Response(stream, { headers });
+}
+
+function toErrorEvent(err: unknown): RunEvent {
+  if (err instanceof BridgeError) return { t: "error", m: err.message, detail: err.detail };
+  if (err instanceof SlackApiError) return { t: "error", m: err.message, detail: err.code };
+  return { t: "error", m: err instanceof Error ? err.message : sm().unexpectedError };
 }

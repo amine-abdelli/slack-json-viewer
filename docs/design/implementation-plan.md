@@ -10,8 +10,7 @@ own, without rewriting what already works.
 | --- | --- | --- |
 | Parsing and normalisation | `lib/slack/parse.ts`, `users.ts`, `emoji.ts`, `types.ts` | Format-agnostic, tested by use; the design changes nothing here. |
 | Rich text | `components/slack/rich-text.tsx` | Only restyled through CSS variables. |
-| Slack bridge | `lib/server/*`, `app/api/slack/*`, `lib/slack/bridge-*.ts`, `tools/qrauth` | The wizard calls the same jobs (`auth-*`, `channels`, `dump`, `resolve-users`). |
-| QR live view | `components/slack/qr-live-view.tsx` | Wrapped in the design's "sign-in browser" frame. |
+| Slack bridge | `lib/server/*`, `app/api/slack/*`, `lib/slack/bridge-*.ts` | The wizard calls the same jobs (`auth-*`, `channels`, `dump`, `resolve-users`). |
 | i18n | `lib/i18n/*` | New strings go in the same typed catalogues (5 languages). |
 | Standalone export | `lib/export/standalone.tsx` | Same builder; it picks up the new tokens because it copies the page CSS. |
 

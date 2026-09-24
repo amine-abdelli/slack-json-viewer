@@ -12,12 +12,13 @@ import {
   FolderOpen,
   HardDrive,
   Info,
-  KeyRound,
   Loader,
   LogOut,
   Plug,
   Plus,
-  QrCode,
+  Puzzle,
+  RefreshCw,
+  ChevronDown,
   ShieldCheck,
   SkipForward,
   Upload,
@@ -33,10 +34,8 @@ import {
   PageTitle,
   SearchField,
   SectionTitle,
-  Segmented,
   Tag,
 } from "@/components/app/ui";
-import { QrLiveView } from "@/components/slack/qr-live-view";
 import { readFiles, type ReadFiles } from "@/lib/app/files";
 import { INTL_TAGS } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
@@ -53,10 +52,15 @@ import {
   fetchStatus,
   logoutWorkspace,
   runJob,
-  sendQrInput,
-  type LiveEvent,
 } from "@/lib/slack/bridge-client";
 import type { BridgeStatus, ChannelSummary, RunRequest } from "@/lib/slack/bridge-types";
+import {
+  ExtensionError,
+  extensionTeams,
+  extensionVersion,
+  type ExtensionTeam,
+} from "@/lib/slack/extension-client";
+import { bridgeSource, extensionSource, type SlackSource } from "@/lib/slack/sources";
 import { parseConversation } from "@/lib/slack/parse";
 import { parseUserDirectory } from "@/lib/slack/users";
 import type { SlackConversation, UserDirectory } from "@/lib/slack/types";
@@ -67,7 +71,6 @@ import { cn } from "@/lib/utils";
 /* -------------------------------------------------------------------------- */
 
 type Step = "source" | "slack" | "pick" | "run" | "done" | "files";
-type AuthMode = "qr" | "token";
 
 /** Slack IDs as they appear in a dump: quoted fields, and `<@U…>` mentions. */
 const QUOTED_ID = /"([UWB][A-Z0-9]{6,})"/g;
@@ -88,6 +91,10 @@ function channelLabel(c: ChannelSummary, m: Messages): string {
   if (c.isIM) return c.user ? `${m.connect.directMessage} · ${c.user}` : m.connect.directMessage;
   return c.id;
 }
+
+/** How to install the browser extension, until it is on the Chrome Web Store. */
+const EXTENSION_HELP_URL =
+  "https://github.com/amine-abdelli/slack-json-viewer/blob/main/extension/README.md";
 
 /** The list renders at most this many rows; the filter narrows the rest. */
 const MAX_VISIBLE_CHANNELS = 400;
@@ -179,8 +186,10 @@ export function ImportView({
     (err: unknown) =>
       err instanceof BridgeClientError
         ? { message: err.message, detail: err.detail }
-        : { message: err instanceof Error ? err.message : m.common.unexpectedError },
-    [m],
+        : err instanceof ExtensionError
+          ? { message: t(m.importer.extError, { error: err.message }) }
+          : { message: err instanceof Error ? err.message : m.common.unexpectedError },
+    [m, t],
   );
 
   /** Wraps a job with the shared busy / log / error handling. */
@@ -211,13 +220,8 @@ export function ImportView({
   const [addingWorkspace, setAddingWorkspace] = React.useState(false);
   const connected = (bridge?.workspaces.length ?? 0) > 0;
   const showSignInForm = !connected || addingWorkspace;
-  const [authMode, setAuthMode] = React.useState<AuthMode>("token");
-  const qrAvailable = Boolean(bridge && (bridge.qrauth.ready || bridge.qrauth.buildable));
-  const activeMode: AuthMode = qrAvailable ? authMode : "token";
-  const [qrImage, setQrImage] = React.useState("");
   const [token, setToken] = React.useState("");
   const [cookie, setCookie] = React.useState("");
-  const [live, setLive] = React.useState<{ id: string; frame: string | null } | null>(null);
 
   const [channels, setChannels] = React.useState<ChannelSummary[]>([]);
   const [filter, setFilter] = React.useState("");
@@ -225,12 +229,17 @@ export function ImportView({
   const [withUsers, setWithUsers] = React.useState(true);
   const [memberOnly, setMemberOnly] = React.useState(true);
 
+  /** Where the conversations are read from, once a workspace is picked. */
+  const [source, setSource] = React.useState<SlackSource | null>(null);
+
   const loadChannels = React.useCallback(
-    async (wsp: string, onlyMine: boolean) => {
+    async (src: SlackSource, onlyMine: boolean) => {
       const list = await withBusy(m.connect.busyChannels, (signal) =>
-        runJob<ChannelSummary[]>({ action: "channels", workspace: wsp, memberOnly: onlyMine }, pushLog, signal),
+        src.channels(onlyMine, pushLog, signal),
       );
       if (!list) return;
+      setSource(src);
+      setWorkspace(src.workspace);
       setChannels(list);
       setFilter("");
       setStep("pick");
@@ -238,59 +247,72 @@ export function ImportView({
     [m, pushLog, withBusy],
   );
 
+  /* ---------------------------------------------------------- extension */
+
+  type ExtState =
+    | { state: "checking" }
+    | { state: "missing" }
+    | { state: "reading" }
+    | { state: "ready"; teams: ExtensionTeam[] }
+    | { state: "empty" }
+    | { state: "error"; message: string };
+  const [ext, setExt] = React.useState<ExtState>({ state: "checking" });
+  const [othersOpen, setOthersOpen] = React.useState<boolean | null>(null);
+  /** Folded unless used before: the extension is the way in for most people. */
+  const showOthers = othersOpen ?? connected;
+
+  /** Looks for the extension, then for the Slack workspaces signed in to this browser. */
+  const checkExtension = React.useCallback(async () => {
+    setExt({ state: "checking" });
+    const version = await extensionVersion();
+    if (!version) return setExt({ state: "missing" });
+    setExt({ state: "reading" });
+    try {
+      let teams = await extensionTeams(false);
+      // No Slack tab open: the extension opens one in the background to read it.
+      if (teams.length === 0) teams = await extensionTeams(true);
+      setExt(teams.length ? { state: "ready", teams } : { state: "empty" });
+    } catch (err) {
+      setExt({ state: "error", message: err instanceof Error ? err.message : String(err) });
+    }
+  }, []);
+
+  const openTeam = (team: ExtensionTeam) => {
+    setSelected(new Set());
+    void loadChannels(extensionSource(team, i18n), memberOnly);
+  };
+
   const handleAuth = React.useCallback(async () => {
     const wsp = workspace.trim();
     if (!wsp) return setError({ message: m.connect.missingWorkspace });
-    let job: RunRequest;
-    if (activeMode === "qr") {
-      if (!qrImage.trim()) return setError({ message: m.connect.missingQr });
-      job = { action: "auth-qr", workspace: wsp, qrImage: qrImage.trim() };
-    } else {
-      if (!token.trim()) return setError({ message: m.connect.missingToken });
-      job = { action: "auth-token", workspace: wsp, token: token.trim(), cookie: cookie.trim() };
-    }
-    const onLive = (event: LiveEvent) =>
-      setLive((prev) =>
-        event.t === "live"
-          ? { id: event.id, frame: null }
-          : prev && { ...prev, frame: `data:image/jpeg;base64,${event.data}` },
-      );
+    if (!token.trim()) return setError({ message: m.connect.missingToken });
+    const job: RunRequest = {
+      action: "auth-token",
+      workspace: wsp,
+      token: token.trim(),
+      cookie: cookie.trim(),
+    };
     const res = await withBusy(m.connect.busySignIn, (signal) =>
-      runJob<{ workspace: string }>(job, pushLog, signal, onLive),
+      runJob<{ workspace: string }>(job, pushLog, signal),
     );
-    setLive(null);
     if (!res) return;
-    setQrImage("");
     setToken("");
     setCookie("");
     setAddingWorkspace(false);
-    setWorkspace(res.workspace);
     const next = await fetchStatus();
     if (next) onBridgeChange(next);
-    await loadChannels(res.workspace, memberOnly);
-  }, [m, workspace, activeMode, qrImage, token, cookie, memberOnly, withBusy, pushLog, onBridgeChange, loadChannels]);
+    await loadChannels(bridgeSource(res.workspace), memberOnly);
+  }, [m, workspace, token, cookie, memberOnly, withBusy, pushLog, onBridgeChange, loadChannels]);
 
   const openWorkspace = (wsp: string) => {
-    setWorkspace(wsp);
     setSelected(new Set());
-    void loadChannels(wsp, memberOnly);
+    void loadChannels(bridgeSource(wsp), memberOnly);
   };
 
   const forget = async (wsp: string) => {
     await logoutWorkspace(wsp);
     const next = await fetchStatus();
     if (next) onBridgeChange(next);
-  };
-
-  /** Accepts an image pasted straight from the clipboard, not just its URL. */
-  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const item = Array.from(event.clipboardData.items).find((i) => i.type.startsWith("image/"));
-    const blob = item?.getAsFile();
-    if (!blob) return;
-    event.preventDefault();
-    const reader = new FileReader();
-    reader.onload = () => setQrImage(String(reader.result ?? ""));
-    reader.readAsDataURL(blob);
   };
 
   const { visibleChannels, matchCount } = React.useMemo(() => {
@@ -330,7 +352,9 @@ export function ImportView({
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
   const startImport = async () => {
-    const wsp = workspace.trim();
+    const src = source;
+    if (!src) return;
+    const wsp = src.workspace;
     const picked = channels.filter((c) => selected.has(c.id));
     if (picked.length === 0) return;
     const controller = new AbortController();
@@ -354,8 +378,8 @@ export function ImportView({
         while (!finished) {
           setLine(channel.id, { status: "running", right: undefined });
           try {
-            const raw = await runJob<unknown>(
-              { action: "dump", workspace: wsp, channel: channel.id },
+            const raw = await src.dump(
+              channel.id,
               (line) => setLine(channel.id, { right: line }),
               signal,
             );
@@ -390,8 +414,8 @@ export function ImportView({
       if (withUsers && ids.size > 0) {
         setLine("__users", { status: "running" });
         try {
-          const users = await runJob<unknown[]>(
-            { action: "resolve-users", workspace: wsp, userIds: [...ids] },
+          const users = await src.users(
+            [...ids],
             (line) => setLine("__users", { right: line }),
             signal,
           );
@@ -630,22 +654,17 @@ export function ImportView({
                     </li>
                   ))}
                 </ul>
-                {bridge && !bridge.available ? (
-                  <p className="m-0 rounded-[6px] bg-info-soft px-3 py-2 text-[13px] text-fg-2">
-                    {m.importer.bridgeOff}
-                  </p>
-                ) : null}
                 <div>
                   <LqButton
                     size="lg"
-                    disabled={!bridge?.available}
                     onClick={() => {
                       setPath("slack");
                       setError(null);
                       setStep("slack");
+                      void checkExtension();
                     }}
                   >
-                    {bridge ? m.importer.continueSlack : m.importer.checking}
+                    {m.importer.continueSlack}
                     <ArrowRight />
                   </LqButton>
                 </div>
@@ -672,182 +691,169 @@ export function ImportView({
               <BackLink onClick={() => setStep("source")} label={m.common.back} />
               <PageTitle title={m.importer.connectTitle} subtitle={m.importer.connectSubtitle} />
 
-              {connected ? (
-                <section className="flex flex-col gap-2.5">
-                  <SectionTitle>{m.importer.connectedTitle}</SectionTitle>
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2.5">
-                    {bridge!.workspaces.map((w) => (
-                      <div key={w} className="relative">
-                        <button
-                          type="button"
-                          disabled={Boolean(busy)}
-                          onClick={() => openWorkspace(w)}
-                          className="flex w-full items-center gap-3 rounded-[10px] border border-border bg-surface py-3.5 pr-11 pl-3.5 text-left text-fg transition-shadow hover:border-brand-line hover:shadow-2 disabled:opacity-60"
-                        >
-                          <span className="grid size-10 shrink-0 place-items-center rounded-[8px] bg-surface-3 text-[17px] font-semibold uppercase">
-                            {w.charAt(0)}
-                          </span>
-                          <span className="flex min-w-0 flex-col gap-px">
-                            <span className="flex items-center gap-1.5 font-semibold">
-                              <span className="size-1.5 rounded-full bg-success" />
-                              {w}
-                            </span>
-                            <span className="font-mono text-[12px] text-fg-3">{w}.slack.com</span>
-                            <span className="mt-1 text-[13px] font-medium text-brand-text">
-                              {m.connect.viewChannels} →
-                            </span>
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void forget(w)}
-                          title={m.connect.forget}
-                          aria-label={t(m.connect.forgetNamed, { workspace: w })}
-                          className="absolute top-2.5 right-2.5 grid size-7 place-items-center rounded-[6px] text-fg-3 hover:bg-danger-soft hover:text-danger"
-                        >
-                          <LogOut className="size-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
+              <ExtensionCard
+                ext={ext}
+                busy={Boolean(busy)}
+                onRetry={() => void checkExtension()}
+                onOpen={openTeam}
+              />
 
-              {!showSignInForm ? (
-                <LqButton
-                  variant="dashed"
-                  size="sm"
-                  className="self-start"
-                  disabled={Boolean(busy)}
-                  onClick={() => {
-                    setWorkspace("");
-                    setAddingWorkspace(true);
-                  }}
+              <section className="flex flex-col gap-5">
+                <button
+                  type="button"
+                  aria-expanded={showOthers}
+                  onClick={() => setOthersOpen(!showOthers)}
+                  className="flex items-center gap-2 self-start text-left"
                 >
-                  <Plus />
-                  {m.connect.addWorkspace}
-                </LqButton>
-              ) : live ? (
-                <LiveSection
-                  live={live}
-                  onCancel={() => abortRef.current?.abort()}
-                  workspace={workspace}
-                />
-              ) : (
-                <section className="overflow-hidden rounded-[12px] border border-border bg-surface">
-                  <div className="flex flex-col gap-4 px-5 pt-5">
-                    {connected ? (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] font-semibold text-fg-2">{m.connect.newWorkspace}</span>
-                        <button
-                          type="button"
-                          onClick={() => setAddingWorkspace(false)}
-                          className="text-[12px] text-fg-3 underline-offset-2 hover:text-fg hover:underline"
-                        >
-                          {m.connect.hide}
-                        </button>
-                      </div>
-                    ) : null}
-                    <label className="flex max-w-[420px] flex-col gap-1.5">
-                      <span className="text-[13px] font-medium">{m.connect.workspace}</span>
-                      <span className="flex h-9 items-center overflow-hidden rounded-[6px] border border-border-strong bg-surface focus-within:border-focus">
-                        <input
-                          value={workspace}
-                          disabled={Boolean(busy)}
-                          onChange={(e) => setWorkspace(e.target.value)}
-                          placeholder="acme"
-                          className="h-full min-w-0 flex-1 border-0 bg-transparent px-2.5 font-mono text-[14px] text-fg outline-none focus-visible:outline-none"
-                        />
-                        <span className="grid h-full place-items-center border-l border-border bg-surface-2 px-2.5 font-mono text-[13px] text-fg-3">
-                          .slack.com
-                        </span>
-                      </span>
-                    </label>
-                    {qrAvailable ? (
-                      <Segmented
-                        label={m.importer.method}
-                        value={activeMode}
-                        onChange={setAuthMode}
-                        options={[
-                          { value: "token", label: m.connect.modeToken, icon: <KeyRound className="size-3.5" /> },
-                          { value: "qr", label: m.connect.modeQr, icon: <QrCode className="size-3.5" /> },
-                        ]}
-                      />
-                    ) : null}
-                  </div>
-                  <div className="grid grid-cols-1 gap-5 px-5 pt-4 pb-5 md:grid-cols-[minmax(0,1fr)_260px]">
-                    <div className="flex min-w-0 flex-col gap-3">
-                      {activeMode === "token" ? (
-                        <>
-                          <span className="text-[13px] font-medium">{m.connect.tokenLabel}</span>
-                          <input
-                            className="h-9 rounded-[6px] border border-border-strong bg-surface px-2.5 font-mono text-[13px] text-fg outline-none focus:border-focus"
-                            placeholder="xoxc-…"
-                            autoComplete="off"
-                            spellCheck={false}
-                            value={token}
-                            disabled={Boolean(busy)}
-                            onChange={(e) => setToken(e.target.value)}
-                            aria-label={m.connect.tokenLabel}
-                          />
-                          <input
-                            className="h-9 rounded-[6px] border border-border-strong bg-surface px-2.5 font-mono text-[13px] text-fg outline-none focus:border-focus"
-                            placeholder={m.connect.cookiePlaceholder}
-                            autoComplete="off"
-                            spellCheck={false}
-                            value={cookie}
-                            disabled={Boolean(busy)}
-                            onChange={(e) => setCookie(e.target.value)}
-                            aria-label={m.connect.cookiePlaceholder}
-                          />
-                          <p className="m-0 text-[12px] text-fg-3">{m.connect.tokenNotice}</p>
-                        </>
-                      ) : (
-                        <>
-                          <label className="text-[13px] font-medium" htmlFor="lq-qr">
-                            {m.connect.qrLabel}
-                          </label>
-                          <textarea
-                            id="lq-qr"
-                            rows={3}
-                            spellCheck={false}
-                            disabled={Boolean(busy)}
-                            value={qrImage}
-                            onChange={(e) => setQrImage(e.target.value)}
-                            onPaste={handlePaste}
-                            placeholder="data:image/png;base64,…"
-                            className="w-full resize-none rounded-[6px] border border-border-strong bg-surface px-2.5 py-2 font-mono text-[12px] text-fg outline-none focus:border-focus"
-                          />
-                          {qrImage.startsWith("data:image/") ? (
-                            <div className="flex items-start gap-2 rounded-[6px] bg-success-soft px-3 py-2 text-[13px] text-success">
-                              <CircleCheck className="mt-0.5 size-[15px] shrink-0" />
-                              <span>{t(m.connect.qrRecognised, { size: fmt.size(qrImage.length) })}</span>
-                            </div>
-                          ) : null}
-                        </>
-                      )}
-                      <div>
-                        <LqButton disabled={Boolean(busy)} onClick={() => void handleAuth()}>
-                          {m.connect.signIn}
-                          <ArrowRight />
-                        </LqButton>
-                      </div>
-                    </div>
-                    <aside className="rounded-[8px] bg-surface-2 px-4 py-3.5 text-[13px] text-fg-2">
-                      <div className="mb-2 flex items-center gap-1.5 font-semibold text-fg">
-                        <Info className="size-3.5" />
-                        {m.importer.howTo}
-                      </div>
-                      <ol className="m-0 flex list-decimal flex-col gap-1.5 pl-[18px] leading-normal">
-                        {(activeMode === "token" ? m.connect.tokenHelp : m.connect.qrHelp).map((line) => (
-                          <li key={line}>{line}</li>
+                  <ChevronDown
+                    className={cn("size-4 text-fg-3 transition-transform", !showOthers && "-rotate-90")}
+                  />
+                  <span>
+                    <span className="block text-[13px] font-semibold text-fg-2">{m.importer.otherMethods}</span>
+                    <span className="block text-[12px] text-fg-3">{m.importer.otherMethodsHint}</span>
+                  </span>
+                </button>
+                {!showOthers ? null : !bridge?.available ? (
+                  <p className="m-0 rounded-[6px] bg-info-soft px-3 py-2 text-[13px] text-fg-2">
+                    {m.importer.bridgeOff}
+                  </p>
+                ) : (
+                  <>
+                  {connected ? (
+                    <section className="flex flex-col gap-2.5">
+                      <SectionTitle>{m.importer.connectedTitle}</SectionTitle>
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2.5">
+                        {bridge!.workspaces.map((w) => (
+                          <div key={w} className="relative">
+                            <button
+                              type="button"
+                              disabled={Boolean(busy)}
+                              onClick={() => openWorkspace(w)}
+                              className="flex w-full items-center gap-3 rounded-[10px] border border-border bg-surface py-3.5 pr-11 pl-3.5 text-left text-fg transition-shadow hover:border-brand-line hover:shadow-2 disabled:opacity-60"
+                            >
+                              <span className="grid size-10 shrink-0 place-items-center rounded-[8px] bg-surface-3 text-[17px] font-semibold uppercase">
+                                {w.charAt(0)}
+                              </span>
+                              <span className="flex min-w-0 flex-col gap-px">
+                                <span className="flex items-center gap-1.5 font-semibold">
+                                  <span className="size-1.5 rounded-full bg-success" />
+                                  {w}
+                                </span>
+                                <span className="font-mono text-[12px] text-fg-3">{w}.slack.com</span>
+                                <span className="mt-1 text-[13px] font-medium text-brand-text">
+                                  {m.connect.viewChannels} →
+                                </span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void forget(w)}
+                              title={m.connect.forget}
+                              aria-label={t(m.connect.forgetNamed, { workspace: w })}
+                              className="absolute top-2.5 right-2.5 grid size-7 place-items-center rounded-[6px] text-fg-3 hover:bg-danger-soft hover:text-danger"
+                            >
+                              <LogOut className="size-3.5" />
+                            </button>
+                          </div>
                         ))}
-                      </ol>
-                    </aside>
-                  </div>
-                </section>
-              )}
-              {busy && !live ? busyBox : null}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {!showSignInForm ? (
+                    <LqButton
+                      variant="dashed"
+                      size="sm"
+                      className="self-start"
+                      disabled={Boolean(busy)}
+                      onClick={() => {
+                        setWorkspace("");
+                        setAddingWorkspace(true);
+                      }}
+                    >
+                      <Plus />
+                      {m.connect.addWorkspace}
+                    </LqButton>
+                  ) : (
+                    <section className="overflow-hidden rounded-[12px] border border-border bg-surface">
+                      <div className="flex flex-col gap-4 px-5 pt-5">
+                        {connected ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[13px] font-semibold text-fg-2">{m.connect.newWorkspace}</span>
+                            <button
+                              type="button"
+                              onClick={() => setAddingWorkspace(false)}
+                              className="text-[12px] text-fg-3 underline-offset-2 hover:text-fg hover:underline"
+                            >
+                              {m.connect.hide}
+                            </button>
+                          </div>
+                        ) : null}
+                        <label className="flex max-w-[420px] flex-col gap-1.5">
+                          <span className="text-[13px] font-medium">{m.connect.workspace}</span>
+                          <span className="flex h-9 items-center overflow-hidden rounded-[6px] border border-border-strong bg-surface focus-within:border-focus">
+                            <input
+                              value={workspace}
+                              disabled={Boolean(busy)}
+                              onChange={(e) => setWorkspace(e.target.value)}
+                              placeholder="acme"
+                              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2.5 font-mono text-[14px] text-fg outline-none focus-visible:outline-none"
+                            />
+                            <span className="grid h-full place-items-center border-l border-border bg-surface-2 px-2.5 font-mono text-[13px] text-fg-3">
+                              .slack.com
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 gap-5 px-5 pt-4 pb-5 md:grid-cols-[minmax(0,1fr)_260px]">
+                        <div className="flex min-w-0 flex-col gap-3">
+                              <span className="text-[13px] font-medium">{m.connect.tokenLabel}</span>
+                              <input
+                                className="h-9 rounded-[6px] border border-border-strong bg-surface px-2.5 font-mono text-[13px] text-fg outline-none focus:border-focus"
+                                placeholder="xoxc-…"
+                                autoComplete="off"
+                                spellCheck={false}
+                                value={token}
+                                disabled={Boolean(busy)}
+                                onChange={(e) => setToken(e.target.value)}
+                                aria-label={m.connect.tokenLabel}
+                              />
+                              <input
+                                className="h-9 rounded-[6px] border border-border-strong bg-surface px-2.5 font-mono text-[13px] text-fg outline-none focus:border-focus"
+                                placeholder={m.connect.cookiePlaceholder}
+                                autoComplete="off"
+                                spellCheck={false}
+                                value={cookie}
+                                disabled={Boolean(busy)}
+                                onChange={(e) => setCookie(e.target.value)}
+                                aria-label={m.connect.cookiePlaceholder}
+                              />
+                              <p className="m-0 text-[12px] text-fg-3">{m.connect.tokenNotice}</p>
+                          <div>
+                            <LqButton disabled={Boolean(busy)} onClick={() => void handleAuth()}>
+                              {m.connect.signIn}
+                              <ArrowRight />
+                            </LqButton>
+                          </div>
+                        </div>
+                        <aside className="rounded-[8px] bg-surface-2 px-4 py-3.5 text-[13px] text-fg-2">
+                          <div className="mb-2 flex items-center gap-1.5 font-semibold text-fg">
+                            <Info className="size-3.5" />
+                            {m.importer.howTo}
+                          </div>
+                          <ol className="m-0 flex list-decimal flex-col gap-1.5 pl-[18px] leading-normal">
+                            {m.connect.tokenHelp.map((line) => (
+                              <li key={line}>{line}</li>
+                            ))}
+                          </ol>
+                        </aside>
+                      </div>
+                    </section>
+                  )}
+                  </>
+                )}
+              </section>
+              {busy ? busyBox : null}
               {errorBox}
             </>
           ) : null}
@@ -908,7 +914,7 @@ export function ImportView({
                   disabled={Boolean(busy)}
                   onChange={(v) => {
                     setMemberOnly(v);
-                    void loadChannels(workspace.trim(), v);
+                    if (source) void loadChannels(source, v);
                   }}
                   label={m.connect.memberOnly}
                   hint={m.importer.memberOnlyHint}
@@ -1258,6 +1264,150 @@ export function ImportView({
   );
 }
 
+/** The recommended way in: the Slack session already open in this browser. */
+function ExtensionCard({
+  ext,
+  busy,
+  onRetry,
+  onOpen,
+}: {
+  ext:
+    | { state: "checking" }
+    | { state: "missing" }
+    | { state: "reading" }
+    | { state: "ready"; teams: ExtensionTeam[] }
+    | { state: "empty" }
+    | { state: "error"; message: string };
+  busy: boolean;
+  onRetry: () => void;
+  onOpen: (team: ExtensionTeam) => void;
+}) {
+  const { m, t, p } = useI18n();
+  const linkClass =
+    "inline-flex h-9 items-center gap-2 rounded-[6px] px-4 text-[13px] font-medium whitespace-nowrap [&_svg]:size-3.5";
+
+  return (
+    <section className="flex flex-col gap-4 rounded-[12px] border-[1.5px] border-brand bg-surface p-5 shadow-1">
+      <div className="flex items-start gap-3.5">
+        <div className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-brand-soft text-brand-text">
+          <Puzzle className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="m-0 text-[16px] font-semibold">{m.importer.extTitle}</h2>
+            <Tag tone="brand">{m.importer.recommended}</Tag>
+          </div>
+          <p className="mt-1 mb-0 text-[13px] text-fg-2 [text-wrap:pretty]">{m.importer.extBody}</p>
+        </div>
+      </div>
+
+      {ext.state === "checking" || ext.state === "reading" ? (
+        <p className="m-0 flex items-center gap-2 text-[13px] text-fg-2">
+          <Loader className="size-4 animate-spin text-brand-text" />
+          {ext.state === "checking" ? m.importer.extChecking : m.importer.extReading}
+        </p>
+      ) : ext.state === "missing" ? (
+        <>
+          <ol className="m-0 flex list-decimal flex-col gap-1.5 rounded-[8px] bg-surface-2 py-3 pr-4 pl-8 text-[13px] leading-normal text-fg-2">
+            {m.importer.extSteps.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ol>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={EXTENSION_HELP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(linkClass, "bg-brand text-brand-fg hover:bg-brand-hover")}
+            >
+              <Puzzle />
+              {m.importer.extInstall}
+            </a>
+            <LqButton variant="secondary" onClick={onRetry}>
+              <RefreshCw />
+              {m.importer.extRetry}
+            </LqButton>
+          </div>
+        </>
+      ) : ext.state === "empty" || ext.state === "error" ? (
+        <>
+          <div className="rounded-[8px] bg-warning-soft px-3.5 py-3 text-[13px]">
+            <div className="font-semibold text-warning">
+              {ext.state === "empty"
+                ? m.importer.extNoSession
+                : t(m.importer.extError, { error: ext.message })}
+            </div>
+            {ext.state === "empty" ? <div className="mt-0.5 text-fg-2">{m.importer.extNoSessionHint}</div> : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ext.state === "empty" ? (
+              <a
+                href="https://app.slack.com/client"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(linkClass, "bg-brand text-brand-fg hover:bg-brand-hover")}
+              >
+                {m.importer.extOpenSlack}
+                <ArrowRight />
+              </a>
+            ) : null}
+            <LqButton variant="secondary" onClick={onRetry}>
+              <RefreshCw />
+              {m.importer.extRetry}
+            </LqButton>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] text-fg-3">{p(m.importer.extFound, ext.teams.length)}</span>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="flex items-center gap-1.5 text-[12px] text-fg-3 hover:text-fg"
+            >
+              <RefreshCw className="size-3" />
+              {m.importer.extRefresh}
+            </button>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2.5">
+            {ext.teams.map((team) => (
+              <button
+                key={team.id}
+                type="button"
+                disabled={busy}
+                onClick={() => onOpen(team)}
+                className="flex w-full items-center gap-3 rounded-[10px] border border-border bg-surface p-3.5 text-left text-fg transition-shadow hover:border-brand-line hover:shadow-2 disabled:opacity-60"
+              >
+                {team.icon ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={team.icon} alt="" className="size-10 shrink-0 rounded-[8px]" />
+                ) : (
+                  <span className="grid size-10 shrink-0 place-items-center rounded-[8px] bg-surface-3 text-[17px] font-semibold uppercase">
+                    {team.name.charAt(0)}
+                  </span>
+                )}
+                <span className="flex min-w-0 flex-col gap-px">
+                  <span className="flex items-center gap-1.5 truncate font-semibold">
+                    <span className="size-1.5 shrink-0 rounded-full bg-success" />
+                    {team.name}
+                  </span>
+                  <span className="truncate font-mono text-[12px] text-fg-3">
+                    {team.domain ? `${team.domain}.slack.com` : team.id}
+                  </span>
+                  <span className="mt-1 text-[13px] font-medium text-brand-text">
+                    {m.connect.viewChannels} →
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
@@ -1268,62 +1418,5 @@ function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
       <ArrowLeft className="size-3.5" />
       {label}
     </button>
-  );
-}
-
-/** The sign-in browser: Slack handing over to the company's identity provider. */
-function LiveSection({
-  live,
-  onCancel,
-  workspace,
-}: {
-  live: { id: string; frame: string | null };
-  onCancel: () => void;
-  workspace: string;
-}) {
-  const { m } = useI18n();
-  return (
-    <section className="overflow-hidden rounded-[12px] border border-border bg-surface">
-      <div className="flex flex-wrap items-start gap-3.5 px-5 pt-[18px] pb-3.5">
-        <div className="min-w-[240px] flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="m-0 text-[16px] font-semibold">{m.connect.liveTitle}</h2>
-            <span className="inline-flex items-center gap-[5px] rounded-[10px] bg-success-soft px-[7px] py-0.5 text-[11px] font-medium text-success">
-              <span className="lq-pulse size-1.5 rounded-full bg-current" />
-              {m.importer.liveBadge}
-            </span>
-          </div>
-          <p className="mt-1.5 mb-0 max-w-[560px] text-[13px] text-fg-2 [text-wrap:pretty]">
-            {m.connect.liveHint}
-          </p>
-        </div>
-        <LqButton variant="secondary" size="sm" onClick={onCancel}>
-          {m.common.cancel}
-        </LqButton>
-      </div>
-      <div className="px-5">
-        <div className="overflow-hidden rounded-[10px] border border-border-strong">
-          <div className="flex h-8 items-center gap-2 border-b border-border bg-surface-2 px-2.5 font-mono text-[12px] text-fg-2">
-            <span className="truncate">{workspace}.slack.com</span>
-            <span className="flex-1" />
-            <span className="font-app text-fg-3">1280 × 800</span>
-          </div>
-          <QrLiveView frame={live.frame} onInput={(input) => sendQrInput(live.id, input)} />
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2.5 px-5 pt-3.5 pb-[18px] text-[12px] text-fg-3">
-        <span className="flex items-center gap-1.5 text-success">
-          <CircleCheck className="size-[13px]" />
-          Slack
-        </span>
-        <span>›</span>
-        <span className="flex items-center gap-1.5 font-medium text-fg">
-          <Loader className="size-[13px] animate-spin" />
-          {m.importer.liveIdp}
-        </span>
-        <span>›</span>
-        <span>{m.importer.liveBack}</span>
-      </div>
-    </section>
   );
 }
