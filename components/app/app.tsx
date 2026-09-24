@@ -404,6 +404,7 @@ export function App() {
             <ImportView
               bridge={bridge}
               onBridgeChange={setBridge}
+              archives={archives ?? []}
               pendingFiles={pendingFiles}
               onPendingConsumed={() => setPendingFiles(null)}
               onPickFiles={pickFiles}

@@ -321,10 +321,18 @@ URL-encoded, and encoding it again breaks authentication.
 | Participants' names | `users.info` | One call per ID found in the dump |
 
 - **Pagination** follows `response_metadata.next_cursor`, capped at 30 pages for
-  listings and 500 pages of 200 for history (100 000 messages).
-- **Rate limits.** An HTTP `429` is retried after the `Retry-After` delay Slack
-  gives, at most three times and never waiting more than 60 s; a `ratelimited`
-  error in the JSON body backs off linearly.
+  listings and 500 pages for history. History and replies ask for 999 messages
+  a page, Slack's maximum: every page is one request against the rate limit.
+- **Rate limits.** One `RateGate` per session (per `ApiContext`) keeps a pause
+  per method. The first `429` sets it to the `Retry-After` Slack gives (at most
+  60 s); every call of that method, in flight or queued, waits it out, and it
+  is logged once. A call gives up after 12 rate limits in a row. A `ratelimited`
+  error in the JSON body counts the same, with a growing delay. Evenly spacing
+  calls out was tried and dropped: Slack counts calls per window, so going
+  full speed and honouring `Retry-After` already gives the best throughput.
+- **Transient failures** — a 5xx, a 408, a dropped connection (`fetch`
+  rejecting with a `TypeError`) — are retried three times, 2, 4 then 6 s
+  apart.
 - **Concurrency.** Thread replies are fetched four at a time
   (`conversations.replies` is Tier 3), user lookups eight at a time
   (`users.info` is Tier 4).
@@ -336,7 +344,15 @@ URL-encoded, and encoding it again breaks authentication.
 
 `dumpConversation` fetches the history, sorts it oldest first, then fetches the
 replies of every root with `reply_count > 0` and stores them — root included, as
-Slack returns them — in the root's `replies`. The viewer's flattening removes
+Slack returns them — in the root's `replies`.
+
+**Updates.** When the conversation is already in the library, the import wizard
+passes `known` — `knownThreads(stored)`, a map of root `ts` →
+`reply_count:latest_reply` — and `dumpConversation` skips the roots whose stamp
+is unchanged. The wizard then puts their replies back from the stored copy with
+`reuseReplies`. Through the bridge, `known` travels in the `dump` request (the
+route checks it is a string map). The history is always fetched whole: it is
+cheap at 999 a page and carries edits, reactions and deletions. The viewer's flattening removes
 the duplicate. **A dump with no messages is an error, not an empty
 conversation:** the panel says Slack returned nothing, instead of loading a blank
 page. On Enterprise Grid a token is tied to one workspace, so a conversation
@@ -395,9 +411,13 @@ the server stores nothing at all: each browser carries its own credentials.
   `iv (12 bytes) | tag (16 bytes) | ciphertext`, base64url. The key is
   `sha256("loquarium-credentials:" + SLACK_VIEWER_SECRET)`. A value that does not
   decrypt — tampered, or sealed under another secret — reads as "not signed in".
-- **Without `SLACK_VIEWER_SECRET`** a random key is made per server instance:
-  nothing leaks, but a restart (or another serverless instance) signs everyone
-  out. Set it in production.
+- **Without `SLACK_VIEWER_SECRET`** the key comes from `LOQUARIUM_BUILD_KEY`,
+  32 random bytes made by `next.config.ts` once per build (once per `next dev`)
+  and read by server code only. Every route and every serverless instance of a
+  deployment share it — a key made at run time did not: on Vercel, `run` and
+  `status` are different functions, and in development each hot reload made a
+  new one, so a sign-in vanished at the next request. A new deployment still
+  signs everyone out; setting the secret avoids that.
 - **Listing.** *Connected workspaces* is the set of `lq_ws_*` cookies that
   decrypt. Logging out expires the cookie.
 

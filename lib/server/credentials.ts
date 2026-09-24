@@ -28,23 +28,20 @@ const MAX_AGE_S = Number(process.env.SLACK_VIEWER_SESSION_TTL_HOURS ?? 12) * 60 
 let key: Buffer | null = null;
 
 /**
- * The encryption key. Without `SLACK_VIEWER_SECRET`, a random one is made per
- * server instance: safe, but every restart (or every other serverless
- * instance) signs everyone out — set it in production.
+ * The encryption key: from `SLACK_VIEWER_SECRET` when set, otherwise from the
+ * key made at build time (`next.config.ts`), shared by every route of the
+ * deployment — sign-ins then last until the next deployment. The random last
+ * resort only serves code run outside a Next build, such as tests.
  */
 function encryptionKey(): Buffer {
   if (key) return key;
   const secret = process.env.SLACK_VIEWER_SECRET;
-  if (secret && secret.length >= 16) {
-    key = crypto.createHash("sha256").update(`loquarium-credentials:${secret}`).digest();
-  } else {
-    if (process.env.NODE_ENV === "production") {
-      console.warn(
-        "[loquarium] SLACK_VIEWER_SECRET is not set: Slack sign-ins will not survive a restart.",
-      );
-    }
-    key = crypto.randomBytes(32);
-  }
+  const fallback = process.env.LOQUARIUM_BUILD_KEY;
+  const material =
+    secret && secret.length >= 16 ? secret : fallback ? `build:${fallback}` : null;
+  key = material
+    ? crypto.createHash("sha256").update(`loquarium-credentials:${material}`).digest()
+    : crypto.randomBytes(32);
   return key;
 }
 

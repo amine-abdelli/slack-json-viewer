@@ -186,7 +186,7 @@ export const ru: Messages = {
     ],
     cookiePlaceholder: "xoxd-… (cookie «d»)",
     tokenNotice:
-      "Эти значения дают доступ к вашему Slack. Обратно в браузер они не возвращаются: они шифруются на сервере и привязаны к вашей сессии.",
+      "Эти значения дают доступ к вашему Slack. После проверки они хранятся в зашифрованном виде в cookie этого браузера — страница не может их прочитать, сервер их не хранит. Вход сохраняется 12 часов или до выхода.",
     filterPlaceholder: "Найти канал…",
     filterLabel: "Фильтр каналов по названию или ID",
     filterHintByName: "По названию",
@@ -320,6 +320,8 @@ export const ru: Messages = {
     stepDone: "Готово",
     stepDirectory: "Справочник",
     optional: "Необязательно",
+    inLibrary: "Уже импортировано",
+    inLibraryHint: "Уже в библиотеке: будут загружены только изменившиеся ветки.",
     privacy:
       "Импортированные беседы хранятся на этом устройстве. Открытые файлы никогда не покидают браузер.",
     sourceTitle: "Откуда берутся беседы?",
@@ -632,8 +634,8 @@ export const ru: Messages = {
     },
     slackRefused: "Slack отклонил {method}: {code}.",
     slackHttp: "Slack ответил {status} на {method}.",
-    rateLimitedWait: "Slack ограничивает запросы, пауза {seconds} с…",
-    rateLimitedRetry: "Slack ограничивает запросы, повторная попытка…",
+    rateLimitedWait: "Slack ограничивает запросы — продолжение через {seconds} с…",
+    transientRetry: "Slack не ответил на {method}, повторная попытка…",
     conversationsFetched: plural({
       one: "получена {n} переписка",
       few: "получено {n} переписки",
@@ -661,5 +663,6 @@ export const ru: Messages = {
       other: "осталось загрузить {n} ветки…",
     }),
     threadsFetched: "загружено веток: {done}/{total}",
+    threadsReused: plural({ one: "{n} ветка не изменилась, взята из сохранённой копии", few: "{n} ветки не изменились, взяты из сохранённой копии", many: "{n} веток не изменились, взяты из сохранённой копии", other: "{n} ветки не изменились, взяты из сохранённой копии" }),
   },
 };

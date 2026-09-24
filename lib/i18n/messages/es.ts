@@ -155,7 +155,7 @@ export const es: Messages = {
     ],
     cookiePlaceholder: "xoxd-… (cookie «d»)",
     tokenNotice:
-      "Estos valores dan acceso a tu Slack. No vuelven al navegador: se cifran en el servidor, vinculados a tu sesión.",
+      "Estos valores dan acceso a tu Slack. Una vez verificados, se guardan cifrados en una cookie de este navegador: la página no puede leerlos y el servidor no los almacena. Sigues conectado 12 h o hasta que cierres la sesión.",
     filterPlaceholder: "Buscar un canal…",
     filterLabel: "Filtrar los canales por nombre o por ID",
     filterHintByName: "Por nombre",
@@ -277,6 +277,8 @@ export const es: Messages = {
     stepDone: "Listo",
     stepDirectory: "Directorio",
     optional: "Opcional",
+    inLibrary: "Ya importado",
+    inLibraryHint: "Ya está en la biblioteca: solo se obtendrán los hilos que hayan cambiado.",
     privacy:
       "Las conversaciones importadas se guardan en este dispositivo. Los archivos abiertos nunca salen del navegador.",
     sourceTitle: "¿De dónde vienen las conversaciones?",
@@ -547,8 +549,8 @@ export const es: Messages = {
     },
     slackRefused: "Slack rechazó {method}: {code}.",
     slackHttp: "Slack respondió {status} a {method}.",
-    rateLimitedWait: "Slack está limitando las peticiones, pausa de {seconds} s…",
-    rateLimitedRetry: "Slack está limitando las peticiones, reintentando…",
+    rateLimitedWait: "Slack limita las peticiones — se reanuda en {seconds} s…",
+    transientRetry: "Slack no responde a {method}, reintentando…",
     conversationsFetched: plural({
       one: "{n} conversación obtenida",
       other: "{n} conversaciones obtenidas",
@@ -567,5 +569,6 @@ export const es: Messages = {
       other: "{n} hilos por obtener…",
     }),
     threadsFetched: "{done}/{total} hilos obtenidos",
+    threadsReused: plural({ one: "{n} hilo sin cambios, conservado de la copia existente", other: "{n} hilos sin cambios, conservados de la copia existente" }),
   },
 };
