@@ -36,6 +36,7 @@ import {
   Tag,
 } from "@/components/app/ui";
 import { readFiles, type ReadFiles } from "@/lib/app/files";
+import { rememberUnresolvable, unresolvableIds } from "@/lib/app/unresolvable";
 import { INTL_TAGS } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages";
 import { useI18n } from "@/lib/i18n/react";
@@ -152,7 +153,7 @@ export function ImportView({
   pendingFiles,
   onPendingConsumed,
   onPickFiles,
-  directorySize,
+  directory,
   applyDirectory,
   onImported,
   onOpen,
@@ -164,13 +165,15 @@ export function ImportView({
   pendingFiles: File[] | null;
   onPendingConsumed: () => void;
   onPickFiles: () => void;
-  directorySize: number;
+  /** People already known: not asked of Slack again. */
+  directory: UserDirectory;
   applyDirectory: (dir: UserDirectory, name: string) => void;
   onImported: () => Promise<Archive[]>;
   onOpen: (archiveId: string, conversationId?: string) => void;
 }) {
   const i18n = useI18n();
   const { locale, m, t, p, fmt } = i18n;
+  const directorySize = Object.keys(directory).length;
   const [step, setStep] = React.useState<Step>("source");
   const [path, setPath] = React.useState<"slack" | "file">("slack");
 
@@ -427,16 +430,37 @@ export function ImportView({
       }
 
       if (withUsers && ids.size > 0) {
+        // Only the IDs never seen: people already in the directory (deactivated
+        // accounts included — they will not change) and IDs Slack could not
+        // resolve last time are not asked again.
+        const skip = unresolvableIds(wsp);
+        const wanted = [...ids].filter((id) => !directory[id] && !skip.has(id));
+        const known = ids.size - wanted.length;
+        const summary = (fetched: number) =>
+          [
+            fetched > 0 || known === 0 ? p(m.importer.people, fetched) : null,
+            known > 0 ? p(m.importer.peopleKnown, known) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ");
         setLine("__users", { status: "running" });
         try {
-          const users = await src.users(
-            [...ids],
-            (line) => setLine("__users", { right: line }),
-            signal,
-          );
-          const dir = parseUserDirectory(JSON.stringify(users ?? []));
-          if (Object.keys(dir).length > 0) applyDirectory(dir, `${wsp}.slack.com`);
-          setLine("__users", { status: "done", right: p(m.importer.people, Object.keys(dir).length) });
+          if (wanted.length === 0) {
+            setLine("__users", { status: "done", right: summary(0) });
+          } else {
+            const users = await src.users(
+              wanted,
+              (line) => setLine("__users", { right: line }),
+              signal,
+            );
+            const dir = parseUserDirectory(JSON.stringify(users ?? []));
+            if (Object.keys(dir).length > 0) applyDirectory(dir, `${wsp}.slack.com`);
+            rememberUnresolvable(
+              wsp,
+              wanted.filter((id) => !dir[id]),
+            );
+            setLine("__users", { status: "done", right: summary(Object.keys(dir).length) });
+          }
         } catch (err) {
           if (signal.aborted) throw err;
           setLine("__users", { status: "error", right: toError(err).message });

@@ -423,6 +423,7 @@ export const ru: Messages = {
       many: "{n} человек",
       other: "{n} человека",
     }),
+    peopleKnown: plural({ one: "{n} уже известен", few: "{n} уже известны", many: "{n} уже известны", other: "{n} уже известны" }),
     skipped: "пропущено",
     runErrorTitle: "Не удалось прочитать {name}",
     retry: "Повторить",

@@ -357,6 +357,7 @@ export const en: Messages = {
     runSubtitle: "{workspace} · writing to this device",
     resolving: "Resolving participants' names",
     people: plural({ one: "{n} person", other: "{n} people" }),
+    peopleKnown: plural({ one: "{n} already known", other: "{n} already known" }),
     skipped: "skipped",
     runErrorTitle: "Couldn't read {name}",
     retry: "Retry",

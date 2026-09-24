@@ -363,6 +363,7 @@ export const fr = {
     runSubtitle: "{workspace} · écriture sur cet appareil",
     resolving: "Résolution des noms des participants",
     people: plural({ one: "{n} personne", other: "{n} personnes" }),
+    peopleKnown: plural({ one: "{n} déjà connue", other: "{n} déjà connues" }),
     skipped: "ignorée",
     runErrorTitle: "Impossible de lire {name}",
     retry: "Réessayer",

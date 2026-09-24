@@ -408,7 +408,7 @@ export function App() {
               pendingFiles={pendingFiles}
               onPendingConsumed={() => setPendingFiles(null)}
               onPickFiles={pickFiles}
-              directorySize={Object.keys(directory).length}
+              directory={directory}
               applyDirectory={applyDirectory}
               onImported={refreshArchives}
               onOpen={(archiveId, conversationId) =>

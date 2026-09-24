@@ -305,6 +305,7 @@ export const zh: Messages = {
     runSubtitle: "{workspace} · 正在写入本设备",
     resolving: "正在解析参与者姓名",
     people: plural({ other: "{n} 人" }),
+    peopleKnown: plural({ other: "{n} 人已知" }),
     skipped: "已跳过",
     runErrorTitle: "无法读取 {name}",
     retry: "重试",

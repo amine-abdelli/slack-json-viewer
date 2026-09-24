@@ -67,6 +67,12 @@ present — message authors, thread repliers, reaction voters, `<@…>` mentions
 bots — and resolves exactly those, eight requests in flight. Unknown or
 deactivated accounts are skipped rather than failing the batch.
 
+Only IDs never seen before are asked for: people already in the directory —
+deactivated accounts included, since they no longer change — are skipped, and
+so are the IDs Slack answered `user_not_found` for (bots, people from another
+organisation), remembered per workspace in the browser for 30 days. A second
+import of the same channels usually makes no `users.info` call at all.
+
 Slack's rate limiting is honoured: the first `429` pauses every request of that
 kind for the delay Slack asks for — announced once, "resuming in N s" — and
 progress is streamed to the panel throughout. History and threads are read 999

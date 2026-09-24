@@ -357,6 +357,7 @@ export const es: Messages = {
     runSubtitle: "{workspace} · escribiendo en este dispositivo",
     resolving: "Resolviendo los nombres de los participantes",
     people: plural({ one: "{n} persona", other: "{n} personas" }),
+    peopleKnown: plural({ one: "{n} ya conocida", other: "{n} ya conocidas" }),
     skipped: "omitida",
     runErrorTitle: "No se pudo leer {name}",
     retry: "Reintentar",
