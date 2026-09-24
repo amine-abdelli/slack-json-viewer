@@ -38,6 +38,7 @@ import {
   tsToDate,
 } from "@/lib/slack/parse";
 import { isBuiltinUser, resolveUser } from "@/lib/slack/users";
+import { conversationPeople, type HandleOnly } from "@/lib/slack/people";
 import type { NormalizedMessage, SlackConversation, UserDirectory } from "@/lib/slack/types";
 import { cn } from "@/lib/utils";
 
@@ -175,6 +176,15 @@ export function ArchiveView({
     }
     return out;
   }, [messages]);
+
+  /** Members who did not write, and people who only reacted or were mentioned. */
+  const extraPeople = React.useMemo(
+    () =>
+      conversation && meta
+        ? conversationPeople(conversation, meta.participants, directory)
+        : { members: [], others: [] },
+    [conversation, meta, directory],
+  );
 
   /* ------------------------------------------------------------ filters */
 
@@ -330,6 +340,8 @@ export function ArchiveView({
         searchRef={navSearch}
         unresolvedCount={unresolved.length}
         people={people}
+        members={extraPeople.members}
+        others={extraPeople.others}
         counts={counts}
         author={author}
         onAuthor={setAuthor}
@@ -572,6 +584,8 @@ function Navigator({
   searchRef,
   unresolvedCount,
   people,
+  members,
+  others,
   counts,
   author,
   onAuthor,
@@ -590,6 +604,8 @@ function Navigator({
   searchRef: React.Ref<HTMLInputElement>;
   unresolvedCount: number;
   people: string[];
+  members: (string | HandleOnly)[];
+  others: string[];
   counts: Map<string, number>;
   author: string | null;
   onAuthor: (id: string | null) => void;
@@ -740,6 +756,9 @@ function Navigator({
                 </button>
               ) : null}
             </div>
+            {members.length > 0 || others.length > 0 ? (
+              <div className="px-2 pt-1 pb-0.5 text-[11px] text-fg-3">{m.archive.wrote}</div>
+            ) : null}
             {people.map((id) => {
               const user = resolveUser(id, directory, overrides);
               const active = author === id;
@@ -787,6 +806,20 @@ function Navigator({
                 </div>
               );
             })}
+            <PeopleGroup
+              title={m.archive.otherMembers}
+              people={members}
+              directory={directory}
+              overrides={overrides}
+              onFix={onFix}
+            />
+            <PeopleGroup
+              title={m.archive.reactedOrMentioned}
+              people={others}
+              directory={directory}
+              overrides={overrides}
+              onFix={onFix}
+            />
           </>
         ) : null}
       </div>
@@ -870,3 +903,99 @@ function ThreadPanel({
   );
 }
 
+/** Shown at first per group; the rest behind "show more". */
+const GROUP_PREVIEW = 8;
+
+/**
+ * People who are in the conversation without having written in it: listed for
+ * the record, not a filter (they have no message to show).
+ */
+function PeopleGroup({
+  title,
+  people,
+  directory,
+  overrides,
+  onFix,
+}: {
+  title: string;
+  people: (string | HandleOnly)[];
+  directory: UserDirectory;
+  overrides: Record<string, string>;
+  onFix: (id: string) => void;
+}) {
+  const { m, p } = useI18n();
+  const [open, setOpen] = React.useState(false);
+  if (people.length === 0) return null;
+  const shown = open ? people : people.slice(0, GROUP_PREVIEW);
+  const hidden = people.length - shown.length;
+
+  return (
+    <>
+      <div className="flex items-center justify-between px-2 pt-2.5 pb-0.5 text-[11px] text-fg-3">
+        <span>{title}</span>
+        <span className="tabular-nums">{people.length}</span>
+      </div>
+      {shown.map((person) => {
+        if (typeof person !== "string") {
+          const name = person.handle
+            .split(/[._-]+/)
+            .filter(Boolean)
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+          return (
+            <div
+              key={`@${person.handle}`}
+              title={`@${person.handle}`}
+              className="flex h-[30px] items-center gap-2 px-2 text-[13px] text-fg-3"
+            >
+              <span className="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-surface-3 font-read text-[8.5px] font-bold text-fg-2">
+                {name.slice(0, 1)}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{name}</span>
+            </div>
+          );
+        }
+        const user = resolveUser(person, directory, overrides);
+        const unknownId = !user.known && !isBuiltinUser(person);
+        return (
+          <div key={person} className="flex items-center">
+            <div
+              title={user.email ?? person}
+              className="flex h-[30px] min-w-0 flex-1 items-center gap-2 px-2 text-[13px] text-fg-3"
+            >
+              <span
+                className="grid size-[18px] shrink-0 place-items-center rounded-[4px] font-read text-[8.5px] font-bold text-white opacity-80"
+                style={{ background: user.color }}
+              >
+                {user.initials}
+              </span>
+              <span className={cn("min-w-0 flex-1 truncate", unknownId && "font-mono text-[12px]")}>
+                {user.name}
+              </span>
+            </div>
+            {unknownId ? (
+              <button
+                type="button"
+                onClick={() => onFix(person)}
+                title={m.people.name}
+                aria-label={`${m.people.name} — ${person}`}
+                className="mr-0.5 grid size-[26px] place-items-center rounded-[5px] text-warning hover:bg-warning-soft"
+              >
+                <Pencil className="size-[13px]" />
+              </button>
+            ) : null}
+          </div>
+        );
+      })}
+      {hidden > 0 || open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="mx-2 mt-0.5 self-start border-0 bg-transparent p-0 text-left text-[12px] font-medium text-brand-text"
+        >
+          {open ? m.archive.showFewer : p(m.archive.showMorePeople, hidden)}
+        </button>
+      ) : null}
+    </>
+  );
+}

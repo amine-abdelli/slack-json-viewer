@@ -32,6 +32,7 @@ const READ_METHODS = new Set([
   "conversations.info",
   "conversations.history",
   "conversations.replies",
+  "conversations.members",
   "users.info",
 ]);
 

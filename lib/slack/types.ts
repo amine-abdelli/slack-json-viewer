@@ -127,6 +127,8 @@ export interface SlackConversation {
   channel_id: string;
   name: string;
   messages: SlackMessage[];
+  /** Everyone in it, writers or not, when the import could list them. */
+  members?: string[];
 }
 
 /** A user resolved from the directory file (Name / ID / Email). */

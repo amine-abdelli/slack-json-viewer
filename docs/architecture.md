@@ -259,7 +259,7 @@ asks the person for nothing.
 - `teams` reads the signed-in workspaces from `localStorage["localConfig_v2"]`
   in an app.slack.com tab (opening one in the background if needed) and
   returns their names and domains — never their tokens.
-- `call` makes **one** read-only API request (seven allowed methods) with the
+- `call` makes **one** read-only API request (eight allowed methods) with the
   stored client token and the browser's `d` cookie, and returns Slack's answer.
 - `file` downloads **one** image attached to a message, from Slack's file hosts
   only (`*.slack.com/files-…`), images only, at most 8 MB, returned base64.
@@ -336,6 +336,7 @@ URL-encoded, and encoding it again breaks authentication.
 | Channel name | `conversations.info` | Empty for DMs |
 | Messages | `conversations.history` | Roots only, newest first |
 | Thread replies | `conversations.replies` | One call per thread root |
+| Members | `conversations.members` | Up to 500, stored as `members`; skipped above, or when refused |
 | Participants' names | `users.info` | One call per ID found in the dump |
 
 - **Pagination** follows `response_metadata.next_cursor`, capped at 30 pages for

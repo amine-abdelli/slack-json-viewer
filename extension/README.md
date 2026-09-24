@@ -40,8 +40,8 @@ Loquarium page ──chrome.runtime.sendMessage──▶ extension service worke
   domains only.
 - **Read-only.** Only these methods are relayed: `auth.test`,
   `users.conversations`, `conversations.list`, `conversations.info`,
-  `conversations.history`, `conversations.replies`, `users.info`. Anything else
-  is refused.
+  `conversations.history`, `conversations.replies`, `conversations.members`
+  (since 0.3.0), `users.info`. Anything else is refused.
 - **Screenshots.** Since 0.2.0 it can also download one image attached to a
   message, for the copy Loquarium keeps: from Slack's file hosts only
   (`*.slack.com/files-…`), images only, at most 8 MB. After updating the
