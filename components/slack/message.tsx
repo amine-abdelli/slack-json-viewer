@@ -427,7 +427,11 @@ function ThreadBar({
 /*  Message                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export function Message({
+/**
+ * One message. Memoised: when older messages are added above in the viewer,
+ * the ones already on screen keep the same props and are not rendered again.
+ */
+export const Message = React.memo(function Message({
   message,
   directory,
   overrides,
@@ -564,7 +568,7 @@ export function Message({
       </div>
     </div>
   );
-}
+});
 
 /** A day separator; it sticks to the top while its messages scroll by. */
 export function DayDivider({ label, day }: { label: string; day: string }) {

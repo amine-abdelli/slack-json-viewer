@@ -55,7 +55,7 @@ flowchart LR
 | `components/app/app.tsx` | Shell (rail, header, breadcrumbs, drop overlay) and shared state: library, directory, names, preferences, bridge status, routing |
 | `components/app/library-view.tsx` | Library: empty state, recently opened, archives table |
 | `components/app/import-view.tsx` | Import wizard: source → Slack sign-in (live view) → conversations → progress → done; files → directory → done |
-| `components/app/archive-view.tsx` | Archive: navigator, conversation, thread panel, keyboard shortcuts |
+| `components/app/archive-view.tsx` | Archive: navigator, conversation (windowed: the last 150 messages, 150 more each time an `IntersectionObserver` sees the top coming, scroll position kept), thread panel, keyboard shortcuts |
 | `components/app/people-view.tsx` | People tab: who wrote, where their name comes from, inline naming |
 | `components/app/export-sheet.tsx`, `exports-view.tsx` | Export side sheet and export history |
 | `components/app/settings-view.tsx` | Preferences, data on this device, Slack connections |

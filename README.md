@@ -119,6 +119,9 @@ npm run dev        # or: npm run build && npm start
   [Connecting to Slack](#connecting-to-slack)), or open / drop `.json` files.
 - **Library** kept in the browser (IndexedDB): archives per workspace,
   recently opened conversations, nothing sent to a server.
+- **Large conversations stay fluid**: a conversation opens on its latest 150
+  messages, and older ones are added as you scroll up (or with the button at
+  the top). Search and the author filter still cover the whole conversation.
 - **Faithful rendering**: messages grouped by author
   (5-minute window), day separators, reactions, link previews, file
   attachments, mentions, lists, quotes, code blocks, `(edited)`.

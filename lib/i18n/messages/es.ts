@@ -394,6 +394,7 @@ export const es: Messages = {
   },
 
   archive: {
+    olderMessages: plural({ one: "Mostrar el mensaje anterior", other: "Mostrar los {n} mensajes anteriores" }),
     navigator: "Navegador del archivo",
     filter: "Nombre, ID o enlace",
     filterLabel: "Filtrar las conversaciones",

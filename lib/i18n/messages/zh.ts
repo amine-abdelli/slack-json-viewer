@@ -337,6 +337,7 @@ export const zh: Messages = {
   },
 
   archive: {
+    olderMessages: plural({ other: "显示之前的 {n} 条消息" }),
     navigator: "归档导航",
     filter: "名称、ID 或链接",
     filterLabel: "筛选会话",

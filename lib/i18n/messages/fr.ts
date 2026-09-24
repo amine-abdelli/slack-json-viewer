@@ -400,6 +400,7 @@ export const fr = {
   },
 
   archive: {
+    olderMessages: plural({ one: "Afficher le message précédent", other: "Afficher les {n} messages précédents" }),
     navigator: "Navigateur de l'archive",
     filter: "Nom, ID ou lien",
     filterLabel: "Filtrer les conversations",
