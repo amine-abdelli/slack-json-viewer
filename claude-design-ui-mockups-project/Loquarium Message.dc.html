@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div onMouseEnter="{{ enter }}" onMouseLeave="{{ leave }}" style="position:relative;display:flex;gap:8px;padding:{{ pad }};background:{{ bg }};font-family:var(--font-read);color:var(--c-text);font-size:15px;line-height:1.4667;break-inside:avoid;page-break-inside:avoid">
+  <div style="width:36px;flex:none;display:flex;justify-content:flex-end">
+    <sc-if value="{{ m.full }}" hint-placeholder-val="{{ true }}">
+      <div title="{{ m.name }}" style="width:36px;height:36px;border-radius:6px;background:{{ m.color }};color:#fff;display:grid;place-items:center;font:700 14px/1 var(--font-read);margin-top:3px;flex:none">{{ m.initials }}</div>
+    </sc-if>
+    <sc-if value="{{ gutterTime }}">
+      <span title="{{ m.fullTime }}" style="font-size:11px;color:var(--c-muted);line-height:22px;white-space:nowrap;cursor:default">{{ m.time }}</span>
+    </sc-if>
+  </div>
+  <div style="flex:1;min-width:0">
+    <sc-if value="{{ m.orphan }}">
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--c-muted);margin-bottom:2px"><i class="icon-corner-down-right" style="font-size:13px"></i>Réponse dans un fil dont le message d’origine est absent de l’export</div>
+    </sc-if>
+    <sc-if value="{{ m.full }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:baseline;flex-wrap:wrap;column-gap:6px;row-gap:0">
+        <span style="font-weight:900;font-size:15px;color:var(--c-text)">{{ m.name }}</span>
+        <sc-if value="{{ m.bot }}"><span style="font:700 10px/1 var(--font-read);letter-spacing:.02em;padding:3px 4px;border-radius:3px;background:var(--c-reaction-bg);color:var(--c-muted);align-self:center">APP</span></sc-if>
+        <sc-if value="{{ m.unresolved }}"><span title="Cet identifiant n’est pas dans l’annuaire. Donnez-lui un nom depuis l’onglet Personnes." style="font:600 11px/1 var(--font-app);padding:3px 6px;border-radius:10px;background:var(--warning-soft);color:var(--warning);align-self:center;cursor:help">non résolu</span></sc-if>
+        <sc-if value="{{ m.showEmail }}"><span style="font-size:13px;color:var(--c-muted)">{{ m.email }}</span></sc-if>
+        <span title="{{ m.fullTime }}" style="font-size:12px;color:var(--c-muted);cursor:default">{{ m.time }}</span>
+      </div>
+    </sc-if>
+    <div style="overflow-wrap:anywhere">{{ body }}</div>
+    <sc-if value="{{ m.edited }}"><span style="font-size:12px;color:var(--c-muted)">(modifié)</span></sc-if>
+    <sc-if value="{{ m.hasHuddle }}">
+      <div style="margin-top:4px;max-width:420px;border:1px solid var(--c-card-border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:12px;background:var(--c-bg)">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--c-reaction-bg);display:grid;place-items:center;color:var(--c-muted)"><i class="icon-headphones" style="font-size:18px"></i></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">Huddle terminé · {{ m.huddle.dur }}</div>
+          <div style="font-size:13px;color:var(--c-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.huddle.names }}</div>
+        </div>
+        <div style="display:flex">
+          <sc-for list="{{ m.huddle.people }}" as="p"><span title="{{ p.name }}" style="width:22px;height:22px;border-radius:5px;background:{{ p.color }};color:#fff;display:grid;place-items:center;font:700 9px var(--font-read);margin-left:-4px;border:2px solid var(--c-bg)">{{ p.initials }}</span></sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m.hasFiles }}">
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+        <sc-for list="{{ m.files }}" as="f">
+          <sc-if value="{{ f.isImage }}">
+            <div style="max-width:360px">
+              <div style="font-size:13px;color:var(--c-muted);margin-bottom:4px">{{ f.name }} <span>· {{ f.size }}</span></div>
+              <div style="height:200px;border-radius:8px;border:1px solid var(--c-card-border);background:repeating-linear-gradient(135deg,var(--c-hover) 0 10px,var(--c-code-bg) 10px 20px);display:grid;place-items:center;font:12px var(--font-mono);color:var(--c-muted)">image jointe</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ f.isDoc }}">
+            <div style="max-width:420px;display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--c-card-border);border-radius:8px;background:var(--c-bg)">
+              <div style="width:40px;height:40px;border-radius:6px;background:#b8352c;color:#fff;display:grid;place-items:center;font:700 10px var(--font-read);letter-spacing:.04em;flex:none">{{ f.badge }}</div>
+              <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.name }}</div><div style="font-size:13px;color:var(--c-muted)">{{ f.meta }}</div></div>
+              <a href="#" title="Ouvrir dans Slack" style="color:var(--c-muted);display:grid;place-items:center;width:28px;height:28px;border-radius:6px"><i class="icon-external-link" style="font-size:15px"></i></a>
+            </div>
+          </sc-if>
+          <sc-if value="{{ f.isSnippet }}">
+            <div style="max-width:560px;border:1px solid var(--c-card-border);border-radius:8px;overflow:hidden;background:var(--c-bg)">
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--c-card-border)">
+                <i class="icon-file-code" style="font-size:15px;color:var(--c-muted)"></i>
+                <span style="font-weight:700;font-size:13px">{{ f.name }}</span><span style="font-size:12px;color:var(--c-muted)">{{ f.meta }}</span>
+                <span style="flex:1"></span><a href="#" style="font-size:12px;color:var(--c-link);text-decoration:none">Ouvrir dans Slack</a>
+              </div>
+              <div style="padding:8px 12px;background:var(--c-code-bg);font:12px/1.6 var(--font-mono);color:var(--c-text);white-space:pre;overflow:auto"><sc-for list="{{ f.lines }}" as="ln"><div>{{ ln }}</div></sc-for></div>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m.hasPreview }}">
+      <div style="margin-top:6px;max-width:520px;display:flex;gap:12px;padding-left:12px;border-left:4px solid var(--c-quote)">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700"><span style="width:16px;height:16px;border-radius:3px;background:var(--accent);flex:none"></span>{{ m.preview.service }}</div>
+          <a href="{{ m.preview.url }}" style="display:block;font-weight:700;color:var(--c-link);text-decoration:none;margin-top:2px">{{ m.preview.title }}</a>
+          <div style="font-size:14px;color:var(--c-text);margin-top:1px">{{ m.preview.text }}</div>
+        </div>
+        <div style="width:80px;height:80px;border-radius:6px;flex:none;border:1px solid var(--c-card-border);background:repeating-linear-gradient(135deg,var(--c-hover) 0 6px,var(--c-code-bg) 6px 12px);display:grid;place-items:center;font:10px var(--font-mono);color:var(--c-muted)">aperçu</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m.hasReactions }}">
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+        <sc-for list="{{ m.reactions }}" as="r">
+          <span title="{{ r.title }}" style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:12px;background:var(--c-reaction-bg);border:1px solid var(--c-reaction-border);font:700 12px var(--font-read);color:var(--c-text);cursor:default"><span style="font-size:14px">{{ r.e }}</span>{{ r.n }}</span>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ m.hasThread }}">
+      <button onClick="{{ m.onThread }}" onMouseEnter="{{ tEnter }}" onMouseLeave="{{ tLeave }}" style="margin:4px 0 0 -6px;display:flex;align-items:center;gap:8px;width:calc(100% + 6px);max-width:600px;padding:4px 6px;border-radius:6px;border:1px solid {{ tBorder }};background:{{ tBg }};cursor:pointer;font-family:var(--font-read);text-align:left">
+        <span style="display:flex;gap:3px"><sc-for list="{{ m.thread.avatars }}" as="a"><span title="{{ a.name }}" style="width:22px;height:22px;border-radius:5px;background:{{ a.color }};color:#fff;display:grid;place-items:center;font:700 9px var(--font-read)">{{ a.initials }}</span></sc-for></span>
+        <span style="color:var(--c-link);font-weight:700;font-size:13px">{{ m.thread.label }}</span>
+        <sc-if value="{{ tIdle }}"><span style="font-size:13px;color:var(--c-muted)">{{ m.thread.last }}</span></sc-if>
+        <sc-if value="{{ tHover }}"><span style="font-size:13px;color:var(--c-muted)">Voir le fil</span><span style="flex:1"></span><i class="icon-chevron-right" style="font-size:14px;color:var(--c-muted)"></i></sc-if>
+      </button>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:160},&quot;m&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;still&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { h: false, th: false };
+  renderVals() {
+    const m = this.props.m || {};
+    const h = this.state.h && !this.props.still;
+    return {
+      m,
+      body: m.hasText ? React.createElement('div', { dangerouslySetInnerHTML: { __html: m.html } }) : null,
+      pad: m.full ? '8px 20px 4px' : '2px 20px 4px',
+      bg: h ? 'var(--c-hover)' : 'transparent',
+      gutterTime: !m.full && h,
+      enter: () => this.setState({ h: true }),
+      leave: () => this.setState({ h: false, th: false }),
+      tEnter: () => this.setState({ th: true }),
+      tLeave: () => this.setState({ th: false }),
+      tHover: this.state.th, tIdle: !this.state.th,
+      tBg: this.state.th ? 'var(--c-thread-bg)' : 'transparent',
+      tBorder: this.state.th ? 'var(--c-card-border)' : 'transparent',
+    };
+  }
+}
+</script>
+</body>
+</html>

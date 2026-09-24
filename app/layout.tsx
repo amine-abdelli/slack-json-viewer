@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Slack JSON Viewer",
+  title: "Loquarium",
   description:
-    "Read a Slack conversation JSON export in Slack's own interface, then export it as a self-contained HTML page.",
+    "Import Slack conversations, read them as they happened, and export them as self-contained pages.",
 };
 
 export default function RootLayout({
@@ -16,8 +16,9 @@ export default function RootLayout({
     // (see `lib/i18n/react.tsx`) and updates this attribute.
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Lato is Slack's UI typeface. Loaded at runtime so the build stays
-            offline-friendly; the system stack takes over if it is unavailable. */}
+        {/* IBM Plex for the application, Lato for message text (Slack's
+            typeface). Loaded at runtime so the build stays offline-friendly;
+            the system stack takes over if they are unavailable. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -26,7 +27,7 @@ export default function RootLayout({
         />
         {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router: this lives in the root layout, so it is loaded once for every route. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap"
           rel="stylesheet"
         />
       </head>

@@ -1,24 +1,18 @@
 import { NextResponse } from "next/server";
 
 import { localeFromRequest, sm, withLocale } from "@/lib/i18n/server";
+import { CredentialJar } from "@/lib/server/credentials";
 import { BridgeError, logout } from "@/lib/server/slack";
-import { resolveSession } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Forgets the credentials this session stored for a workspace. */
+/** Forgets this browser's credentials for a workspace (clears its cookie). */
 export async function POST(request: Request) {
   return withLocale(localeFromRequest(request), () => handle(request));
 }
 
 async function handle(request: Request) {
-  const session = resolveSession(request);
-  if (session.isNew) {
-    // Nothing was ever stored for a caller we have not seen before.
-    return NextResponse.json({ ok: true });
-  }
-
   let workspace: unknown;
   try {
     ({ workspace } = await request.json());
@@ -28,11 +22,14 @@ async function handle(request: Request) {
   if (typeof workspace !== "string") {
     return NextResponse.json({ error: sm().invalidRequest }, { status: 400 });
   }
+  const jar = new CredentialJar(request);
   try {
-    await logout(session.id, workspace);
+    logout(jar, workspace);
   } catch (err) {
     const message = err instanceof BridgeError ? err.message : sm().logoutFailed;
     return NextResponse.json({ error: message }, { status: 400 });
   }
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+  for (const cookie of jar.setCookieHeaders()) response.headers.append("set-cookie", cookie);
+  return response;
 }

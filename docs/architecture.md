@@ -1,27 +1,29 @@
 # Architecture
 
-Slack JSON Viewer has two halves that share one screen:
+Loquarium (formerly Slack JSON Viewer) has two halves:
 
-- **The viewer** reads a Slack conversation and renders it in Slack's own look,
-  then exports it as a self-contained HTML page or as JSON. It runs entirely in
-  the browser: a file you drop never leaves it.
+- **The app** imports Slack conversations into a local library, renders them
+  faithfully, and exports them as a self-contained HTML page or as JSON. It
+  runs entirely in the browser: conversations are stored in IndexedDB, and a
+  file you open never leaves the browser.
 - **The bridge** fetches conversations straight from Slack, so there is nothing
   to export by hand. It is a handful of Next.js route handlers calling the
   [Slack Web API](https://api.slack.com/methods). It is optional — the viewer
   works without it.
 
-The bridge hands its results to the viewer as if they were dropped files, so
-everything downstream of loading — parsing, rendering, export — has exactly one
-code path.
+Whatever the source — the bridge or an opened file — a conversation goes
+through the same `parseConversation`, lands in the same library, and is rendered
+and exported by the same components.
 
 ```mermaid
 flowchart LR
   subgraph Browser
-    DZ[DropZone] -- files --> V[Viewer]
-    CP[ConnectPanel] -- synthesised File objects --> V
-    V --> P[parse.ts<br/>flatten · normalise · group]
+    F[Opened / dropped files] --> IV[ImportView<br/>the wizard]
+    IV --> L[("Library<br/>IndexedDB")]
+    L --> AV[ArchiveView]
+    AV --> P[parse.ts<br/>flatten · normalise · group]
     P --> ML[MessageList]
-    V -- export --> X[HTML page / JSON file]
+    AV -- export sheet --> X[HTML page / JSON file]
   end
 
   subgraph Server["Next.js route handlers"]
@@ -29,31 +31,38 @@ flowchart LR
     ST["/api/slack/status"] --> B
     LO["/api/slack/logout"] --> B
     B --> API[slack-api.ts]
-    B --> CR[credentials.ts]
-    CR --> D[("data/sessions/&lt;id&gt;")]
-    B -. QR login only .-> Q[tools/qrauth]
+    B --> CR[credentials.ts<br/>encrypted cookies]
   end
 
-  CP -- "NDJSON over POST" --> RUN
+  subgraph Ext["Browser extension"]
+    SW[service worker]
+  end
+
+  IV -- "token + cookie path:<br/>NDJSON over POST" --> RUN
+  IV -- "extension path:<br/>one request at a time" --> SW
   API --> S[(Slack Web API)]
-  Q --> C[Chromium] --> S
+  SW --> S
 ```
 
 ## Repository layout
 
 | Path | Responsibility |
 | --- | --- |
-| `app/page.tsx`, `app/layout.tsx` | Entry point; mounts the viewer |
-| `app/globals.css` | Slack design tokens, light and dark palettes, grouping rules |
+| `app/page.tsx`, `app/layout.tsx` | Entry point; mounts the app; loads IBM Plex and Lato |
+| `app/globals.css` | Loquarium tokens (light / dark), aliases for shadcn and the former `--slack-*` names, reading-surface rules (grouping, threads) |
 | `app/api/slack/{status,run,logout}/route.ts` | The bridge's HTTP surface |
-| `components/slack/viewer-client.tsx` | Mounts the viewer client-side only (`ssr: false`), since its initial state reads `localStorage` |
-| `components/slack/viewer.tsx` | Global state: conversation, directory, search, author filter, theme, thread panel, export, and the connection panel |
-| `components/slack/drop-zone.tsx` | Home screen: drag and drop, file picker, directory picker, *Connecter* entry point |
-| `components/slack/connect-panel.tsx` | Sign in → pick a conversation → fetch, with live progress |
+| `components/slack/viewer-client.tsx` | Mounts the app client-side only (`ssr: false`), since its initial state reads `localStorage` and IndexedDB |
+| `components/app/app.tsx` | Shell (rail, header, breadcrumbs, drop overlay) and shared state: library, directory, names, preferences, bridge status, routing |
+| `components/app/library-view.tsx` | Library: empty state, recently opened, archives table |
+| `components/app/import-view.tsx` | Import wizard: source → Slack sign-in (live view) → conversations → progress → done; files → directory → done |
+| `components/app/archive-view.tsx` | Archive: navigator, conversation, thread panel, keyboard shortcuts |
+| `components/app/people-view.tsx` | People tab: who wrote, where their name comes from, inline naming |
+| `components/app/export-sheet.tsx`, `exports-view.tsx` | Export side sheet and export history |
+| `components/app/settings-view.tsx` | Preferences, data on this device, Slack connections |
+| `components/app/ui.tsx` | Small building blocks from the design system (search field, segmented control, checkbox, switch, banners, buttons) |
 | `components/slack/message-list.tsx`, `message.tsx` | Message, reactions, attachments, files, huddles, thread bar, day divider |
 | `components/slack/rich-text.tsx` | `rich_text` blocks, with an `mrkdwn` fallback and search highlighting |
-| `components/slack/sidebar.tsx` | Aubergine sidebar; the member list doubles as the author filter |
-| `components/slack/language-switcher.tsx` | Language menu, on the home screen and in the conversation header |
+| `components/slack/language-switcher.tsx` | Language menu, in the header and in Settings |
 | `components/ui/*` | shadcn/ui primitives |
 | `lib/slack/types.ts` | Shapes of the Slack data the viewer consumes |
 | `lib/slack/parse.ts` | Parsing, thread flattening, normalisation, grouping, formatting |
@@ -61,21 +70,25 @@ flowchart LR
 | `lib/slack/emoji.ts` | Shortcode → emoji |
 | `lib/slack/bridge-types.ts` | Types shared by the bridge routes and the panel — no Node imports |
 | `lib/slack/bridge-client.ts` | Browser-side client for `/api/slack/*` |
+| `lib/slack/api-core.ts`, `api-text.ts` | The Slack Web API client (pagination, rate limits, threads, names), shared by the server and the extension path |
+| `lib/slack/extension-client.ts`, `sources.ts` | Talking to the browser extension; `SlackSource`, what the import wizard reads from |
+| `extension/` | The Loquarium browser extension (Manifest V3) |
 | `lib/export/standalone.tsx` | Standalone HTML export; download helpers |
+| `lib/library/store.ts`, `summary.ts` | The library in IndexedDB (in memory when unavailable); conversation summaries and titles |
+| `lib/app/route.ts` | Hash routes: `#/library`, `#/import`, `#/archive/<id>/<conversation>[/people]`, `#/exports`, `#/settings` |
+| `lib/app/files.ts` | Sorts opened files into conversations, directories and errors |
+| `lib/app/exports-history.ts` | Export history in `localStorage` |
 | `lib/i18n/` | Languages: detection, catalogues, formatting, React provider, server side |
 | `lib/server/slack.ts` | The bridge: validation, sign-in, listing, dumping, resolving |
 | `lib/server/slack-api.ts` | Slack Web API client: transport, pagination, rate limits, dump |
-| `lib/server/credentials.ts` | Per-session encrypted credential storage |
-| `lib/server/session.ts` | Session cookie, per-session directory, key derivation, expiry |
-| `tools/qrauth/` | Go helper for the QR sign-in (separate Go module) |
-| `docker/`, `Dockerfile`, `docker-compose.yml` | Container image for the QR sign-in |
+| `lib/server/credentials.ts` | Credentials in encrypted httpOnly cookies, one per workspace |
 
 ## The viewer
 
-### Loading
+### Loading and the library
 
-Everything enters through `handleFiles` in `viewer.tsx`, whether the files come
-from a drop, the file picker, or the bridge. For each file:
+Files enter through `readFiles` (`lib/app/files.ts`), whether they are dropped
+anywhere on the app or picked from the import wizard. For each file:
 
 1. If it looks like JSON, `parseConversation` tries to read it as a
    conversation: either `{ channel_id, name, messages }` or a bare array of
@@ -86,9 +99,15 @@ from a drop, the file picker, or the bridge. For each file:
    e-mail column.
 3. Anything else produces an error naming the file.
 
-The directory, its file name, the manual name overrides and the display
-preferences are persisted in `localStorage` under the `slack-viewer:*` keys.
-The conversation itself is not persisted.
+Conversations are saved with `saveConversations` into an **archive**: one per
+Slack workspace (`slack:<workspace>`), plus one for local files (`files`). The
+archive record holds a summary of each conversation (kind, counts, period,
+participants, size, last opened); the conversation itself is stored separately
+and read only when it is opened. Importing a conversation again replaces it.
+
+Directories are **merged** into the one already known (a newer entry wins). The
+directory, the manual names and the display preferences stay in `localStorage`
+under the `slack-viewer:*` keys; the export history under `loquarium:exports`.
 
 ### Normalisation
 
@@ -131,12 +150,14 @@ page clones that hidden node into its own panel.
 `resolveUser` looks an ID up in the directory, then in the manual overrides,
 then among built-ins (`USLACKBOT`); unknown IDs render as the raw ID with an
 *unresolved* badge and a deterministic avatar colour. The banner above the list
-counts unknown IDs and opens a dialog to name them, pre-filled with suggestions
-taken from an `mpdm-…` channel name.
+counts unknown IDs and opens the **People** tab, where they can be named inline,
+with suggestions taken from an `mpdm-…` channel name.
 
 ### Export
 
-The header's **Exporter** menu offers two formats.
+The header's **Export** button opens a side sheet with two formats (PDF and
+the evidence pack are shown as coming soon). Every export is recorded in the
+Exports screen.
 
 **HTML page** (`buildStandaloneHtml`). The same `MessageList` component is
 rendered with `renderToStaticMarkup`, every same-origin stylesheet of the live
@@ -151,20 +172,13 @@ the viewer as is. The user directory is not included: it lives in
 
 ### Navigation
 
-The back arrow at the left of the header goes back where the conversation came
-from: to the channel list when the bridge is available, and to the home screen
-otherwise. The browser's own back button does the same: while a conversation is
-on screen, one history entry is pushed, and popping it runs the same code; the
-arrow pops that entry too, so the two never disagree.
+Screens live in the URL hash (`lib/app/route.ts`), so the browser's back and
+forward buttons move between them and a reload stays put. The header's back
+arrow goes to the previous breadcrumb. In an archive, `⌘K` focuses the
+conversation filter, `⌘F` the search, and `Esc` closes the thread panel.
 
-Landing back on the list, rather than on the sign-in step, relies on the panel
-never remounting. `viewer.tsx` renders `ConnectPanel` **first, in both
-branches** — home screen and conversation — so React keeps the same instance,
-with its step, its channels and its filter. Rendering it at a different place in
-each branch silently resets it. Because the dialog now reopens without
-remounting, its content sits one z-index above its overlay
-(`components/ui/dialog.tsx`): Radix portals the two separately, and the overlay
-can otherwise end up covering the content.
+The import wizard keeps its steps in its own state: going back to a step keeps
+the channel list and the selection.
 
 ## Languages
 
@@ -208,8 +222,9 @@ The browser sends its language in an `x-slack-viewer-locale` header on every
 `/api/slack/*` request (`bridge-client.ts`), falling back to `Accept-Language`
 when absent. Each route runs its work inside `withLocale`
 (`lib/i18n/server.ts`), an `AsyncLocalStorage`, so code anywhere below reads
-its wording with `sm()` without the language being passed around. The Go QR
-helper's own progress lines stay in English.
+its wording with `sm()` without the language being passed around. On the
+extension path the same `server` catalogue words the progress lines, in the
+page (`lib/slack/api-text.ts`).
 
 ### The exported page
 
@@ -219,17 +234,41 @@ the page's script composes itself — the message counter and the thread
 panel's reply count — are serialised into `window.SLACK_EXPORT_I18N` with
 their plural forms and language tag.
 
+## The browser extension
+
+`extension/` is a Manifest V3 extension that lets the page read Slack **with
+the session already open in the browser** — the recommended way in, since it
+asks the person for nothing.
+
+- The page talks to it with `chrome.runtime.sendMessage(EXTENSION_ID, …)`
+  (`lib/slack/extension-client.ts`); only origins listed in the manifest's
+  `externally_connectable` can.
+- `teams` reads the signed-in workspaces from `localStorage["localConfig_v2"]`
+  in an app.slack.com tab (opening one in the background if needed) and
+  returns their names and domains — never their tokens.
+- `call` makes **one** read-only API request (seven allowed methods) with the
+  stored client token and the browser's `d` cookie, and returns Slack's answer.
+
+Everything else runs in the page: `lib/slack/api-core.ts` is the same client the
+server uses, with the transport and the wording injected
+(`lib/slack/sources.ts` → `extensionSource`). No request goes through
+Loquarium's server on this path. See `extension/README.md`.
+
+The import wizard only sees a `SlackSource` (`channels`, `dump`, `users`): the
+bridge and the extension are interchangeable behind it.
+
 ## The bridge
 
 ### HTTP surface
 
 | Route | Method | Purpose |
 | --- | --- | --- |
-| `/api/slack/status` | `GET` | What the bridge can do (`available`, QR helper availability) and which workspaces the caller has signed in to. Mints the session cookie on first contact. |
+| `/api/slack/status` | `GET` | Whether the bridge is available, and which workspaces this browser has signed in to (from its cookies). |
 | `/api/slack/run` | `POST` | Runs one operation and streams its progress. |
-| `/api/slack/logout` | `POST` | Forgets the caller's credentials for a workspace. |
+| `/api/slack/logout` | `POST` | Clears the credential cookie for a workspace. |
 
-All three run on the Node.js runtime and are never cached.
+All three run on the Node.js runtime and are never cached. `run` declares
+`maxDuration = 300`, the most every Vercel plan allows.
 
 ### The `run` protocol
 
@@ -238,7 +277,6 @@ The request body is a `RunRequest` (`lib/slack/bridge-types.ts`):
 | `action` | Fields | Result |
 | --- | --- | --- |
 | `auth-token` | `workspace`, `token`, `cookie` | `{ workspace }` |
-| `auth-qr` | `workspace`, `qrImage` (a `data:image/…` URL) | `{ workspace }` |
 | `channels` | `workspace`, `memberOnly?` (default `true`) | `ChannelSummary[]` |
 | `dump` | `workspace`, `channel` | `{ channel_id, name, messages }` |
 | `resolve-users` | `workspace`, `userIds` | Slack user objects |
@@ -248,8 +286,9 @@ The response is NDJSON: one `RunEvent` per line — any number of
 `{ "t": "error", "m": …, "detail"?: … }`. `runJob` in `bridge-client.ts` reads
 the stream, forwards each log line to the panel as it arrives, and resolves or
 rejects on the final event. Cancelling aborts the fetch; the route passes
-`request.signal` down, so the Slack requests — or the QR helper process — stop
-too.
+`request.signal` down, so the Slack requests stop too. `auth-token` is the
+exception: it sets a cookie, and headers go before the body, so it runs to the
+end (one `auth.test`) and answers in one piece.
 
 Workspace names are normalised (`acme.slack.com`, `https://acme.slack.com/` →
 `acme`) and checked against `^[a-z0-9][a-z0-9._-]*$`; channel IDs against
@@ -257,21 +296,16 @@ Workspace names are normalised (`acme.slack.com`, `https://acme.slack.com/` →
 
 ### Signing in
 
-Both paths end in `registerWorkspace`: the credentials are checked with
-`auth.test` — a bad paste fails at once, with the Slack user and team named on
-success — then stored for the session.
-
-- **Token and cookie.** The caller pastes a client token (`xoxc-…`) and the `d`
-  cookie (`xoxd-…`) read from their own browser. A `xoxc`/`xoxe` token is
-  refused without its cookie.
-- **QR code.** The caller pastes the image of Slack's *Sign in on mobile* QR
-  code. The bridge runs `tools/qrauth`, which returns a token and a `d` cookie
-  (see [The QR helper](#the-qr-helper)). This path is offered only where the
-  helper exists or can be built; elsewhere the panel shows the token path alone.
+The caller pastes a client token (`xoxc-…`) and the `d` cookie (`xoxd-…`) read
+from their own browser; a `xoxc`/`xoxe` token is refused without its cookie.
+The pair is checked with `auth.test` — a bad paste fails at once, with the
+Slack user and team named on success — then stored in a cookie (see
+[Credentials](#credentials)).
 
 ### Fetching
 
-All calls go through `call()` in `slack-api.ts`: a form-encoded `POST` carrying
+All calls go through `call()` in `lib/slack/api-core.ts`, shared with the
+extension path; the server's transport (`lib/server/slack-api.ts`) sends a form-encoded `POST` carrying
 the token both as `Authorization: Bearer` and as a `token` field, as Slack's own
 web client does, and the `d` cookie **exactly as Slack set it** — it is already
 URL-encoded, and encoding it again breaks authentication.
@@ -314,11 +348,11 @@ serve.
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant P as ConnectPanel
+  participant P as ImportView
   participant R as /api/slack/run
   participant A as slack-api.ts
   participant S as Slack
-  participant V as Viewer
+  participant V as Library
 
   U->>P: pick a conversation
   P->>R: { action: "dump", channel }
@@ -332,99 +366,43 @@ sequenceDiagram
     A->>S: conversations.replies
   end
   R-->>P: done { channel_id, name, messages }
-  P->>P: collectUserIds(conversation)
+  P->>V: saveConversations (one per conversation, as it arrives)
+  P->>P: collectUserIds (all selected conversations)
   P->>R: { action: "resolve-users", userIds }
   loop each ID, 8 at a time
     A->>S: users.info
   end
   R-->>P: done [users]
-  P->>V: onFiles([users.json, <channel>.json])
-  V->>V: parseUserDirectory, parseConversation, normalizeMessages
+  P->>P: parseUserDirectory → merged into the directory
 ```
 
 `collectUserIds` scans the dump for quoted IDs — authors, reaction voters,
 `reply_users`, `user_id` in rich-text blocks, `bot_id` — and for `<@U…>` /
-`<@U…|label>` mentions, which only appear inside message text. The directory
-file is handed over first, so the conversation renders with names on the first
-paint.
+`<@U…|label>` mentions, which only appear inside message text. Several
+conversations are imported one after another; the people of all of them are
+resolved in a single pass at the end. A conversation that fails pauses the
+import with *Retry* / *Skip*; cancelling keeps what was already saved.
 
-## Sessions and credentials
+## Credentials
 
 A deployment is shared, and a Slack client token reads a whole workspace, so
-nothing the bridge stores is global.
+the server stores nothing at all: each browser carries its own credentials.
 
-- **Session.** On first contact the server mints a 32-byte random ID, sent as
-  the `slack-viewer-session` cookie (`HttpOnly`, `SameSite=Lax`, `Secure` over
-  HTTPS or behind a proxy that says so). An incoming value is used only if it
-  matches `^[A-Za-z0-9_-]{32,64}$`, since it becomes a directory name.
-- **Storage.** Each session owns `<data>/sessions/<id>/`. Credentials for a
-  workspace live in `<workspace>.api`: AES-256-GCM, laid out as
-  `iv (12 bytes) | tag (16 bytes) | ciphertext`.
-- **Key.** `sha256(HMAC-SHA256(sha256(SLACK_VIEWER_SECRET), sessionId))`. A
-  file is therefore unreadable without its session cookie, even with the whole
-  volume in hand. Without `SLACK_VIEWER_SECRET`, a random secret is generated at
-  boot: nothing leaks, but a restart signs everyone out.
-- **Listing.** The *Déjà connecté* list is the set of `*.api` files in the
-  session directory. Logging out deletes the file.
-- **Expiry.** Each use refreshes the directory's modification time. The status
-  route sweeps — at most every ten minutes — directories idle for longer than
-  `SLACK_VIEWER_SESSION_TTL_HOURS` (12 by default). A visitor who never signs in
-  gets no directory at all.
+- **One cookie per workspace**, `lq_ws_<workspace>`: `HttpOnly`,
+  `SameSite=Strict`, `Path=/api/slack`, `Secure` over HTTPS or behind a proxy
+  that says so, `Max-Age` = `SLACK_VIEWER_SESSION_TTL_HOURS` (12 by default).
+- **Content.** `{ token, cookie }` in AES-256-GCM, laid out as
+  `iv (12 bytes) | tag (16 bytes) | ciphertext`, base64url. The key is
+  `sha256("loquarium-credentials:" + SLACK_VIEWER_SECRET)`. A value that does not
+  decrypt — tampered, or sealed under another secret — reads as "not signed in".
+- **Without `SLACK_VIEWER_SECRET`** a random key is made per server instance:
+  nothing leaks, but a restart (or another serverless instance) signs everyone
+  out. Set it in production.
+- **Listing.** *Connected workspaces* is the set of `lq_ws_*` cookies that
+  decrypt. Logging out expires the cookie.
 
-## The QR helper
-
-`tools/qrauth` is a small Go program, and the only part of the bridge that is
-not a Web API call: consuming a *Sign in on mobile* link needs a real browser.
-
-1. Decode the pasted `data:` URL, then the QR code in it (`readqr`), into a
-   one-shot sign-in link. Its host and path are logged; the query string, which
-   is the credential, never is.
-2. Check that `https://<workspace>.slack.com` is reachable, so a network problem
-   fails fast instead of timing out.
-3. Launch Chromium through [rod](https://github.com/go-rod/rod) with a fixed
-   1280×800 page, open the link, and poll the browser's cookies every 500 ms
-   until a `d=xoxd-…` cookie appears. Slack's *open in the app* interstitial is
-   dismissed if it shows, but nothing waits on it. The page the browser is on
-   is logged every five seconds.
-4. Close the browser and read the client token from `/ssb/redirect` with that
-   cookie, over plain HTTP.
-5. Print `{ token, cookie, workspace }` on stdout. On failure, log the last page
-   reached and write a screenshot of it.
-
-`slack.ts` runs the helper with the QR data on stdin — never in `argv` — at most
-`SLACK_VIEWER_MAX_LOGINS` (2) at a time, each login costing a Chromium.
-
-### The live view
-
-On a workspace behind SSO the QR link does not sign in by itself: Slack hands
-over to the company's identity provider, which wants a person. That page is in
-a browser nobody can see, so the helper shows it and lets the person drive it
-from the connection panel (`tools/qrauth/live.go`,
-`components/slack/qr-live-view.tsx`):
-
-- **Frames.** While it waits, the helper takes a JPEG screenshot every 400 ms
-  and writes it to stderr as an `@@frame <base64>` line when it differs from
-  the last one. `run()` in `slack.ts` routes those lines to the `run` stream
-  as `{ "t": "frame" }` events instead of logging them.
-- **Inputs.** stdin stays open after the QR data. The panel turns clicks
-  (scaled to the 1280×800 page), keystrokes, pasted text and the wheel into
-  `QrInput`s and posts them, one after another, to `/api/slack/qr-input` with
-  the id announced by a `{ "t": "live" }` event. `sendQrInput` checks the
-  input and that the sign-in belongs to the caller's session, then writes it
-  to the helper as one JSON line. Inputs are never logged — they may be a
-  password.
-- **Timeout.** Five minutes, to leave time for an identity provider.
-
-The browser runs headful by default (`QRAUTH_HEADLESS=1` switches it), so the
-container image runs a virtual display: `docker/entrypoint.sh` starts one
-`Xvfb` for the container's lifetime and waits for its socket before starting the
-server. `docker/chromium-wrapper.sh`, pointed to by `CHROME_BIN`, adds the flags
-a container needs (`--no-sandbox`, `--disable-dev-shm-usage`, …), which the
-helper cannot pass itself.
-
-This path has not yet signed in successfully on the workspace it was built for:
-the link opens, but no `d` cookie ever appears. The token path works there, so
-it is not blocking.
+Being stateless is what lets the whole app run on Vercel. The recommended
+path, the browser extension, does not involve the server at all.
 
 ## Limits
 

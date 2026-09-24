@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "build:qrauth": "cd tools/qrauth && go mod tidy && go build -o qrauth ."
+    "lint": "eslint"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

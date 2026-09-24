@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<link rel="stylesheet" href="loquarium-tokens.css">
+<style>html,body{margin:0;height:100%}body{-webkit-font-smoothing:antialiased}a{color:var(--accent-text)}a:hover{color:var(--accent-hover)}button{font-family:inherit}input::placeholder{color:var(--text-3)}</style>
+</helmet>
+<div data-theme="{{ theme }}" onDragEnter="{{ onDragEnter }}" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="position:relative;display:flex;flex-direction:{{ rootDir }};height:{{ rootH }};width:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-app);font-size:14px;line-height:1.45">
+
+  <sc-if value="{{ showRail }}" hint-placeholder-val="{{ true }}">
+    <nav aria-label="Navigation principale" style="width:56px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;background:var(--rail);border-right:1px solid var(--border)">
+      <div title="Loquarium" style="width:30px;height:30px;border-radius:7px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font:600 15px/1 var(--font-app);margin-bottom:14px">L</div>
+      <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="3">
+        <button title="{{ n.label }}" aria-label="{{ n.label }}" onClick="{{ n.go }}" style="width:40px;height:40px;border-radius:8px;border:0;display:grid;place-items:center;cursor:pointer;background:{{ n.bg }};color:{{ n.fg }}"><i class="{{ n.icon }}" style="font-size:19px"></i></button>
+      </sc-for>
+      <div style="flex:1"></div>
+      <button title="Réglages" aria-label="Réglages" onClick="{{ settingsItem.go }}" style="width:40px;height:40px;border-radius:8px;border:0;display:grid;place-items:center;cursor:pointer;background:{{ settingsItem.bg }};color:{{ settingsItem.fg }}"><i class="icon-settings" style="font-size:19px"></i></button>
+    </nav>
+  </sc-if>
+
+  <div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column">
+    <header style="height:52px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px 0 16px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <sc-if value="{{ showBack }}"><button onClick="{{ back }}" aria-label="Retour" title="Retour" style="width:32px;height:32px;border-radius:6px;border:0;background:transparent;color:var(--text-2);display:grid;place-items:center;cursor:pointer" style-hover="background:var(--surface-2)"><i class="icon-arrow-left" style="font-size:18px"></i></button></sc-if>
+      <nav aria-label="Fil d’Ariane" style="display:flex;align-items:center;gap:2px;min-width:0;flex:1;font-size:13px;color:var(--text-3)">
+        <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="1">
+          <sc-if value="{{ c.sep }}"><i class="icon-chevron-right" style="font-size:13px;color:var(--text-3);flex:none"></i></sc-if>
+          <sc-if value="{{ c.link }}"><button onClick="{{ c.go }}" style="border:0;background:none;padding:3px 6px;border-radius:5px;color:var(--text-2);font:inherit;cursor:pointer;white-space:nowrap" style-hover="background:var(--surface-2);color:var(--text)">{{ c.label }}</button></sc-if>
+          <sc-if value="{{ c.last }}"><span aria-current="page" style="color:var(--text);font-weight:500;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ c.label }}</span></sc-if>
+        </sc-for>
+      </nav>
+      <sc-if value="{{ hasPrimary }}">
+        <button onClick="{{ primary.go }}" style="height:34px;display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer;white-space:nowrap" style-hover="background:var(--accent-hover)"><i class="{{ primary.icon }}" style="font-size:15px"></i><sc-if value="{{ notPhone }}"><span>{{ primary.label }}</span></sc-if></button>
+      </sc-if>
+      <div style="position:relative">
+        <button onClick="{{ toggleAcct }}" aria-label="Compte" style="height:34px;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;border-radius:6px;border:1px solid transparent;background:transparent;cursor:pointer;color:var(--text)" style-hover="background:var(--surface-2)">
+          <span style="width:26px;height:26px;border-radius:50%;background:var(--surface-3);color:var(--text-2);display:grid;place-items:center;font:600 11px var(--font-app)">CL</span>
+          <sc-if value="{{ notPhone }}"><span style="font:500 11px var(--font-app);padding:2px 6px;border-radius:4px;border:1px solid var(--border-strong);color:var(--text-2)">Gratuit</span></sc-if>
+          <i class="icon-chevron-down" style="font-size:14px;color:var(--text-3)"></i>
+        </button>
+        <sc-if value="{{ acctOpen }}">
+          <div role="menu" style="position:absolute;right:0;top:40px;width:260px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-3);padding:6px;z-index:40">
+            <div style="padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:4px"><div style="font-weight:600">Camille Laurent</div><div style="font-size:12px;color:var(--text-3)">camille@cabinet-laurent.fr</div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;font-size:13px"><span style="color:var(--text-2)">Offre Gratuite</span><a href="#" style="font-weight:500;text-decoration:none">Passer à Pro</a></div>
+            <button onClick="{{ goSettings }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:5px;background:transparent;color:var(--text);font:13px var(--font-app);cursor:pointer;text-align:left" style-hover="background:var(--surface-2)"><i class="icon-settings" style="font-size:15px;color:var(--text-3)"></i>Réglages</button>
+            <button onClick="{{ logout }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;border-radius:5px;background:transparent;color:var(--text);font:13px var(--font-app);cursor:pointer;text-align:left" style-hover="background:var(--surface-2)"><i class="icon-log-out" style="font-size:15px;color:var(--text-3)"></i>Se déconnecter</button>
+          </div>
+        </sc-if>
+      </div>
+    </header>
+
+    <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
+      <div aria-busy="true" style="flex:1;padding:32px 40px;display:flex;flex-direction:column;gap:14px">
+        <div style="width:220px;height:22px;border-radius:5px;background:linear-gradient(90deg,var(--surface-2),var(--surface-3),var(--surface-2));background-size:400px 100%"></div>
+        <div style="width:360px;max-width:100%;height:12px;border-radius:4px;background:var(--surface-2)"></div>
+        <div style="height:64px;border-radius:8px;background:var(--surface-2);margin-top:16px"></div>
+        <div style="height:64px;border-radius:8px;background:var(--surface-2)"></div>
+        <div style="height:64px;border-radius:8px;background:var(--surface-2)"></div>
+      </div>
+    </sc-if>
+
+    <!-- LIBRARY -->
+    <sc-if value="{{ isLibrary }}">
+      <main style="flex:1;overflow:auto;min-height:0">
+        <div style="max-width:1120px;margin:0 auto;padding:{{ pagePad }};display:flex;flex-direction:column;gap:28px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div>
+              <h1 style="margin:0;font-size:22px;line-height:1.25;font-weight:600;letter-spacing:-.01em">Bibliothèque</h1>
+              <p style="margin:6px 0 0;color:var(--text-3);font-size:13px;display:flex;align-items:center;gap:6px"><i class="icon-hard-drive" style="font-size:14px"></i>{{ libMeta }}</p>
+            </div>
+          </div>
+          <sc-if value="{{ libEmpty }}">
+            <div style="border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:56px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
+              <div style="width:48px;height:48px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center"><i class="icon-plug" style="font-size:22px"></i></div>
+              <h2 style="margin:0;font-size:18px;font-weight:600">Connectez votre espace Slack</h2>
+              <p style="margin:0;max-width:440px;color:var(--text-2);text-wrap:pretty">Choisissez des canaux et des messages directs : Loquarium les restitue tels qu’ils apparaissaient, avec fils, réactions et fichiers. Tout est conservé sur cet appareil.</p>
+              <button onClick="{{ goImportSlack }}" style="height:38px;display:flex;align-items:center;gap:8px;padding:0 18px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 14px var(--font-app);cursor:pointer;margin-top:6px" style-hover="background:var(--accent-hover)">Connecter un espace Slack<i class="icon-arrow-right" style="font-size:15px"></i></button>
+              <button onClick="{{ openFileFlow }}" style="border:0;background:none;color:var(--text-3);font:13px var(--font-app);cursor:pointer;text-decoration:underline;text-underline-offset:3px">ou ouvrir un fichier d’export</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ libFilled }}">
+            <section style="display:flex;flex-direction:column;gap:10px">
+              <h2 style="margin:0;font-size:13px;font-weight:600;color:var(--text-2)">Ouverts récemment</h2>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
+                <sc-for list="{{ recents }}" as="r" hint-placeholder-count="3">
+                  <button onClick="{{ r.open }}" style="text-align:left;display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text);font:inherit" style-hover="border-color:var(--border-strong);box-shadow:var(--shadow-2)">
+                    <span style="display:flex;align-items:center;gap:6px;font-weight:600;min-width:0"><i class="{{ r.icon }}" style="font-size:15px;color:var(--text-3)"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span></span>
+                    <span style="font-size:12px;color:var(--text-3)">{{ r.meta }}</span>
+                    <span style="font-size:12px;color:var(--text-3)">{{ r.archive }} · ouvert {{ r.when }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </section>
+            <section style="display:flex;flex-direction:column;gap:10px">
+              <h2 style="margin:0;font-size:13px;font-weight:600;color:var(--text-2)">Archives</h2>
+              <div style="border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden">
+                <sc-if value="{{ notPhone }}">
+                  <div style="display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1.5fr) 70px 90px 80px minmax(0,1fr);gap:16px;padding:9px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-3);background:var(--surface-2)"><span>Archive</span><span>Période</span><span style="text-align:right">Conv.</span><span style="text-align:right">Messages</span><span style="text-align:right">Taille</span><span>Dernière ouverture</span></div>
+                </sc-if>
+                <sc-for list="{{ archives }}" as="a" hint-placeholder-count="3">
+                  <button onClick="{{ a.open }}" style="width:100%;display:grid;grid-template-columns:{{ libCols }};gap:16px;align-items:center;padding:12px 16px;border:0;border-bottom:1px solid var(--border);background:transparent;cursor:pointer;text-align:left;color:var(--text);font:inherit" style-hover="background:var(--surface-2)">
+                    <span style="display:flex;align-items:center;gap:12px;min-width:0">
+                      <span style="width:34px;height:34px;border-radius:7px;background:var(--surface-3);color:var(--text-2);display:grid;place-items:center;font-weight:600;flex:none">{{ a.initial }}</span>
+                      <span style="min-width:0;display:flex;flex-direction:column;gap:2px">
+                        <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span><span title="Stockée sur cet appareil" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--surface-2);color:var(--text-3);white-space:nowrap;flex:none"><i class="icon-hard-drive" style="font-size:11px"></i>Sur l’appareil</span></span>
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);flex-wrap:wrap"><i class="{{ a.sourceIcon }}" style="font-size:13px"></i>{{ a.source }} · <span style="font-family:var(--font-mono);font-size:11.5px">{{ a.sub }}</span></span>
+                        <sc-if value="{{ isPhone }}"><span style="font-size:12px;color:var(--text-3)">{{ a.range }} · {{ a.msgs }} messages · {{ a.size }}</span></sc-if>
+                      </span>
+                    </span>
+                    <sc-if value="{{ notPhone }}">
+                      <span style="font-size:13px;color:var(--text-2)">{{ a.range }}</span>
+                      <span style="font-size:13px;text-align:right;font-variant-numeric:tabular-nums">{{ a.ch }}</span>
+                      <span style="font-size:13px;text-align:right;font-variant-numeric:tabular-nums">{{ a.msgs }}</span>
+                      <span style="font-size:13px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2)">{{ a.size }}</span>
+                      <span style="font-size:13px;color:var(--text-2);white-space:nowrap">{{ a.opened }}</span>
+                    </sc-if>
+                  </button>
+                </sc-for>
+              </div>
+              <p style="margin:2px 0 0;font-size:12px;color:var(--text-3);display:flex;gap:6px;align-items:center"><i class="icon-shield-check" style="font-size:13px"></i>Les archives sont lues et conservées dans ce navigateur. Aucun message n’est envoyé à nos serveurs.</p>
+            </section>
+          </sc-if>
+        </div>
+      </main>
+    </sc-if>
+
+    <!-- IMPORT -->
+    <sc-if value="{{ isImport }}">
+      <div style="flex:1;min-height:0;display:flex">
+        <sc-if value="{{ showStepper }}">
+          <aside style="width:248px;flex:none;border-right:1px solid var(--border);background:var(--surface);padding:28px 20px;display:flex;flex-direction:column;gap:22px">
+            <div style="font-size:12px;font-weight:600;color:var(--text-3)">{{ pathLabel }}</div>
+            <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+                <li style="display:flex;gap:12px;padding:6px 0">
+                  <span style="display:flex;flex-direction:column;align-items:center;gap:4px">
+                    <span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--font-app);background:{{ s.cBg }};color:{{ s.cFg }};border:1.5px solid {{ s.cBd }};flex:none">
+                      <sc-if value="{{ s.isDone }}"><i class="icon-check" style="font-size:12px"></i></sc-if><sc-if value="{{ s.notDone }}">{{ s.n }}</sc-if>
+                    </span>
+                  </span>
+                  <span style="display:flex;flex-direction:column;min-width:0;padding-top:1px"><span style="font-size:13px;font-weight:{{ s.fw }};color:{{ s.lc }}">{{ s.label }}</span><span style="font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.sub }}</span></span>
+                </li>
+              </sc-for>
+            </ol>
+            <div style="flex:1"></div>
+            <p style="margin:0;font-size:12px;color:var(--text-3);display:flex;gap:8px;line-height:1.5"><i class="icon-shield-check" style="font-size:14px;flex:none;margin-top:1px"></i>Les conversations importées sont stockées sur cet appareil. Les fichiers ouverts ne quittent jamais le navigateur.</p>
+          </aside>
+        </sc-if>
+        <main style="flex:1;min-width:0;overflow:auto">
+          <div style="max-width:780px;padding:{{ pagePad }};display:flex;flex-direction:column;gap:24px">
+
+            <sc-if value="{{ step1 }}">
+              <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">D’où viennent les conversations ?</h1><p style="margin:6px 0 0;color:var(--text-2)">Connectez un espace de travail pour choisir précisément ce que vous importez.</p></div>
+              <sc-if value="{{ fileError }}">
+                <div role="alert" style="display:flex;gap:10px;padding:12px 14px;border-radius:8px;background:var(--danger-soft);color:var(--danger)">
+                  <i class="icon-circle-alert" style="font-size:17px;flex:none;margin-top:1px"></i>
+                  <div style="flex:1;min-width:0"><div style="font-weight:600">« {{ fileErrorName }} » n’est pas un JSON valide.</div><div style="font:12px/1.5 var(--font-mono);margin-top:4px;color:var(--text-2);overflow-wrap:anywhere">Unexpected token } in JSON at position 1832 — ou clé « messages » absente ou invalide.</div></div>
+                  <button onClick="{{ dismissFileError }}" aria-label="Fermer" style="border:0;background:none;color:inherit;cursor:pointer;width:24px;height:24px;border-radius:4px"><i class="icon-x" style="font-size:15px"></i></button>
+                </div>
+              </sc-if>
+              <div style="border:1.5px solid var(--accent);border-radius:12px;background:var(--surface);padding:24px;display:flex;flex-direction:column;gap:18px;box-shadow:var(--shadow-1)">
+                <div style="display:flex;gap:16px;align-items:flex-start">
+                  <div style="width:44px;height:44px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center;flex:none"><i class="icon-plug" style="font-size:20px"></i></div>
+                  <div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:17px;font-weight:600">Connecter un espace Slack</h2><span style="font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px;background:var(--accent-soft);color:var(--accent-text)">Recommandé</span></div><p style="margin:6px 0 0;color:var(--text-2);text-wrap:pretty">Choisissez les canaux, messages directs et groupes à importer. Loquarium lit les conversations avec vos droits d’accès ; rien n’est modifié dans Slack.</p></div>
+                </div>
+                <ul style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;font-size:13px;color:var(--text-2)">
+                  <li style="display:flex;gap:8px;align-items:center"><i class="icon-check" style="color:var(--success);font-size:14px"></i>Fils, réactions et modifications</li>
+                  <li style="display:flex;gap:8px;align-items:center"><i class="icon-check" style="color:var(--success);font-size:14px"></i>Noms des participants résolus</li>
+                  <li style="display:flex;gap:8px;align-items:center"><i class="icon-check" style="color:var(--success);font-size:14px"></i>Canaux privés et messages directs</li>
+                  <li style="display:flex;gap:8px;align-items:center"><i class="icon-check" style="color:var(--success);font-size:14px"></i>Compatible SSO d’entreprise</li>
+                </ul>
+                <div><button onClick="{{ startSlack }}" style="height:38px;display:inline-flex;align-items:center;gap:8px;padding:0 18px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--accent-hover)">Continuer avec Slack<i class="icon-arrow-right" style="font-size:15px"></i></button></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text-3)"><span>Bientôt :</span><span style="padding:2px 8px;border:1px dashed var(--border-strong);border-radius:4px">WhatsApp</span><span style="padding:2px 8px;border:1px dashed var(--border-strong);border-radius:4px">Microsoft Teams</span><span style="padding:2px 8px;border:1px dashed var(--border-strong);border-radius:4px">Discord</span></div>
+              <div style="border-top:1px solid var(--border);padding-top:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <button onClick="{{ openFileFlow }}" style="height:32px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)"><i class="icon-folder-open" style="font-size:14px"></i>Vous avez déjà un export ? Ouvrir un fichier</button>
+                <span style="font-size:12px;color:var(--text-3)">ZIP d’espace de travail ou fichiers .json — vous pouvez aussi les déposer n’importe où.</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ step2slack }}">
+              <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">Connexion à Slack</h1><p style="margin:6px 0 0;color:var(--text-2)">Reprenez un espace déjà connecté ou connectez-en un nouveau.</p></div>
+              <sc-if value="{{ hasConnected }}">
+                <section style="display:flex;flex-direction:column;gap:10px">
+                  <h2 style="margin:0;font-size:13px;font-weight:600;color:var(--text-2)">Espaces connectés</h2>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">
+                    <sc-for list="{{ connected }}" as="w" hint-placeholder-count="2">
+                      <div style="position:relative">
+                        <button onClick="{{ w.open }}" style="width:100%;text-align:left;display:flex;align-items:center;gap:12px;padding:14px 44px 14px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text);font:inherit" style-hover="border-color:var(--accent-line);box-shadow:var(--shadow-2)">
+                          <span style="width:40px;height:40px;border-radius:8px;background:var(--surface-3);color:var(--text);display:grid;place-items:center;font:600 17px var(--font-app);flex:none">{{ w.initial }}</span>
+                          <span style="display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-weight:600">{{ w.name }}</span><span style="font:12px var(--font-mono);color:var(--text-3)">{{ w.domain }}</span><span style="font-size:13px;color:var(--accent-text);font-weight:500;margin-top:4px">Voir les canaux →</span></span>
+                        </button>
+                        <button onClick="{{ w.forget }}" title="Oublier cet espace (se déconnecter)" aria-label="Oublier {{ w.name }}" style="position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:6px;border:0;background:transparent;color:var(--text-3);display:grid;place-items:center;cursor:pointer" style-hover="background:var(--danger-soft);color:var(--danger)"><i class="icon-log-out" style="font-size:14px"></i></button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </section>
+              </sc-if>
+              <sc-if value="{{ showAddAnotherBtn }}">
+                <button onClick="{{ addAnother }}" style="align-self:flex-start;height:34px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;border-radius:6px;border:1px dashed var(--border-strong);background:transparent;color:var(--text-2);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2);color:var(--text)"><i class="icon-plus" style="font-size:14px"></i>Connecter un autre espace</button>
+              </sc-if>
+              <sc-if value="{{ showSigninForm }}">
+                <section style="border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden">
+                  <div style="padding:20px 20px 0;display:flex;flex-direction:column;gap:16px">
+                    <label style="display:flex;flex-direction:column;gap:6px;max-width:420px"><span style="font-size:13px;font-weight:500">Espace de travail</span>
+                      <span style="display:flex;align-items:center;height:36px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);overflow:hidden" style-focus-within="border-color:var(--focus)"><input value="{{ ws }}" onChange="{{ onWs }}" placeholder="acme" style="flex:1;min-width:0;height:100%;border:0;padding:0 10px;background:transparent;color:var(--text);font:14px var(--font-mono);outline:none"><span style="padding:0 10px;height:100%;display:grid;place-items:center;background:var(--surface-2);border-left:1px solid var(--border);color:var(--text-3);font:13px var(--font-mono)">.slack.com</span></span>
+                    </label>
+                    <div role="tablist" aria-label="Méthode de connexion" style="display:inline-flex;align-self:flex-start;padding:3px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);gap:2px">
+                      <button role="tab" onClick="{{ setQr }}" style="height:30px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:6px;border:0;background:{{ segQrBg }};box-shadow:{{ segQrSh }};color:var(--text);font:500 13px var(--font-app);cursor:pointer"><i class="icon-qr-code" style="font-size:14px"></i>Code QR</button>
+                      <button role="tab" onClick="{{ setSlackM }}" style="height:30px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:6px;border:0;background:{{ segSlBg }};box-shadow:{{ segSlSh }};color:var(--text);font:500 13px var(--font-app);cursor:pointer"><i class="icon-log-in" style="font-size:14px"></i>Connexion Slack</button>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:{{ formCols }};gap:20px;padding:16px 20px 20px">
+                    <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+                      <sc-if value="{{ isQr }}">
+                        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500">URL de l’image du code QR</span>
+                          <input value="{{ qrUrl }}" onChange="{{ onQr }}" placeholder="https://…/qr-code.png" style="height:36px;border:1px solid {{ qrBorder }};border-radius:6px;padding:0 10px;background:var(--surface);color:var(--text);font:13px var(--font-mono);outline:none" style-focus="border-color:var(--focus);box-shadow:0 0 0 3px var(--accent-soft)">
+                        </label>
+                        <sc-if value="{{ qrValid }}"><div style="display:flex;gap:8px;align-items:center;padding:9px 12px;border-radius:6px;background:var(--success-soft);color:var(--success);font-size:13px"><i class="icon-circle-check" style="font-size:15px"></i><span><b style="font-weight:600">Code reconnu</b> · {{ ws }}.slack.com · valable encore 4 min 32 s</span></div></sc-if>
+                        <div><button onClick="{{ qrContinue }}" disabled="{{ qrDisabled }}" style="height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 16px;border-radius:6px;border:0;background:var(--accent);opacity:{{ qrOpacity }};color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer">Continuer<i class="icon-arrow-right" style="font-size:14px"></i></button></div>
+                      </sc-if>
+                      <sc-if value="{{ isSlackM }}">
+                        <p style="margin:0;color:var(--text-2);font-size:13px;text-wrap:pretty">Vous vous connectez sur la page de Slack. Si votre entreprise utilise une authentification unique (SSO), elle s’affiche dans un navigateur de connexion sécurisé, ici même.</p>
+                        <div><button onClick="{{ openSso }}" style="height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 16px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--accent-hover)">Ouvrir la connexion Slack<i class="icon-arrow-right" style="font-size:14px"></i></button></div>
+                      </sc-if>
+                    </div>
+                    <aside style="background:var(--surface-2);border-radius:8px;padding:14px 16px;font-size:13px;color:var(--text-2)">
+                      <div style="display:flex;align-items:center;gap:6px;font-weight:600;color:var(--text);margin-bottom:8px"><i class="icon-info" style="font-size:14px"></i>Comment faire</div>
+                      <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;line-height:1.5">
+                        <li>{{ help1 }}</li><li>{{ help2 }}</li><li>{{ help3 }}</li>
+                      </ol>
+                      <div style="margin-top:10px;font:11px var(--font-mono);color:var(--text-3)">Texte d’aide : à remplacer par votre copie</div>
+                    </aside>
+                  </div>
+                </section>
+              </sc-if>
+              <sc-if value="{{ isSso }}">
+                <section style="border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden">
+                  <div style="padding:18px 20px 14px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+                    <div style="flex:1;min-width:240px"><div style="display:flex;align-items:center;gap:8px"><h2 style="margin:0;font-size:16px;font-weight:600">Navigateur de connexion</h2><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;padding:2px 7px;border-radius:10px;background:var(--success-soft);color:var(--success)"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;animation:lqpulse 1.6s infinite"></span>En direct</span></div>
+                    <p style="margin:6px 0 0;font-size:13px;color:var(--text-2);text-wrap:pretty;max-width:560px">Slack vous redirige vers le fournisseur d’identité de votre entreprise. L’image ci-dessous montre un navigateur sécurisé ouvert pour vous : cliquez et tapez directement dedans pour terminer. Loquarium ne conserve jamais votre mot de passe.</p></div>
+                    <button onClick="{{ cancelSso }}" style="height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)">Annuler</button>
+                  </div>
+                  <div style="padding:0 20px">
+                    <div style="border-radius:10px;border:1px solid var(--border-strong);overflow:hidden;box-shadow:{{ ssoRing }};transition:box-shadow .15s">
+                      <div style="height:32px;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--surface-2);border-bottom:1px solid var(--border);font:12px var(--font-mono);color:var(--text-2)"><i class="icon-lock" style="font-size:12px;color:var(--success)"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ssoUrl }}</span><span style="flex:1"></span><span style="font-family:var(--font-app);color:var(--text-3);white-space:nowrap">1280 × 800</span></div>
+                      <div tabindex="0" onClick="{{ focusSso }}" onFocus="{{ focusSso }}" onBlur="{{ blurSso }}" style="position:relative;aspect-ratio:1280/800;background:#eef0f3;cursor:text;outline:none;overflow:hidden">
+                        <sc-if value="{{ ssoOpening }}">
+                          <div style="position:absolute;inset:0;display:grid;place-items:center;background:repeating-linear-gradient(135deg,var(--surface-2) 0 12px,var(--surface-3) 12px 24px)"><div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:var(--surface);color:var(--text-2);font-size:13px;box-shadow:var(--shadow-2)"><i class="icon-loader" style="font-size:16px;animation:lqspin 1s linear infinite"></i>Ouverture du navigateur…</div></div>
+                        </sc-if>
+                        <sc-if value="{{ ssoLive }}">
+                          <div style="position:absolute;inset:0;display:grid;place-items:center;background:#e9ecf1;font-family:Arial,Helvetica,sans-serif;color:#1c2330">
+                            <div style="width:42%;min-width:220px;background:#fff;border-radius:6px;padding:5% 5%;box-shadow:0 2px 10px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:10px">
+                              <div style="font-weight:700;font-size:15px">Acme · Identité</div>
+                              <div style="font-size:12px;color:#5b6472">Connectez-vous pour continuer vers Slack</div>
+                              <div style="height:30px;border:1px solid #c5ccd6;border-radius:4px;display:flex;align-items:center;padding:0 8px;font-size:12px">camille.laurent@acme.fr</div>
+                              <div style="height:30px;border:2px solid #2b6cb0;border-radius:4px;display:flex;align-items:center;padding:0 8px;font-size:14px;letter-spacing:2px">•••••••<span style="width:1px;height:14px;background:#1c2330;margin-left:1px;animation:lqpulse 1s steps(1) infinite"></span></div>
+                              <button onClick="{{ ssoSubmit }}" style="height:30px;border:0;border-radius:4px;background:#2b6cb0;color:#fff;font:600 12px Arial,sans-serif;cursor:pointer">Se connecter</button>
+                            </div>
+                          </div>
+                          <sc-if value="{{ ssoNoFocus }}"><div style="position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:20px;background:var(--inverse);color:var(--inverse-fg);font:500 12px var(--font-app);white-space:nowrap;box-shadow:var(--shadow-2)"><i class="icon-mouse-pointer-click" style="font-size:13px"></i>Cliquez dans l’image pour saisir au clavier</div></sc-if>
+                          <sc-if value="{{ ssoFocus }}"><div style="position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:14px;background:var(--accent);color:var(--accent-fg);font:500 11px var(--font-app)"><i class="icon-keyboard" style="font-size:12px"></i>Clavier actif · Échap pour sortir</div></sc-if>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;padding:14px 20px 18px;flex-wrap:wrap;font-size:12px;color:var(--text-3)">
+                    <span style="display:flex;align-items:center;gap:6px;color:var(--success)"><i class="icon-circle-check" style="font-size:13px"></i>Slack</span><i class="icon-chevron-right" style="font-size:12px"></i>
+                    <span style="display:flex;align-items:center;gap:6px;color:var(--text);font-weight:500"><i class="icon-loader" style="font-size:13px;animation:lqspin 1.2s linear infinite"></i>Fournisseur d’identité</span><i class="icon-chevron-right" style="font-size:12px"></i>
+                    <span>Retour à Loquarium</span><span style="flex:1"></span><span style="font-family:var(--font-mono)">{{ ssoFps }}</span>
+                  </div>
+                </section>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ step2file }}">
+              <div><div style="display:flex;align-items:center;gap:8px"><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">Annuaire des personnes</h1><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface-3);color:var(--text-2)">Optionnel</span></div><p style="margin:6px 0 0;color:var(--text-2);text-wrap:pretty">Un annuaire transforme les identifiants (U07…) en noms lisibles. Il reste sur cet appareil.</p></div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface)"><i class="icon-file-archive" style="font-size:18px;color:var(--text-3)"></i><div style="flex:1;min-width:0"><div style="font:500 13px var(--font-mono);overflow-wrap:anywhere">{{ fileName }}</div><div style="font-size:12px;color:var(--text-3)">142 Mo · 12 canaux · 3 conversations directes</div></div><span style="font-size:12px;color:var(--success);display:flex;gap:5px;align-items:center"><i class="icon-circle-check" style="font-size:13px"></i>Lisible</span></div>
+              <sc-if value="{{ dirDetected }}"><div style="display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:8px;background:var(--success-soft);color:var(--success)"><i class="icon-users" style="font-size:18px"></i><div style="flex:1"><div style="font-weight:600">Annuaire détecté dans le ZIP</div><div style="font-size:13px;color:var(--text-2)"><span style="font-family:var(--font-mono)">users.json</span> · 1 284 personnes</div></div><button onClick="{{ dirReplace }}" style="border:0;background:none;color:var(--text-2);font:500 13px var(--font-app);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Remplacer</button></div></sc-if>
+              <sc-if value="{{ dirAdded }}"><div style="display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface)"><i class="icon-file-text" style="font-size:18px;color:var(--text-3)"></i><div style="flex:1"><div style="font-weight:600"><span style="font-family:var(--font-mono);font-weight:500">annuaire-rh-2026.csv</span> ajouté</div><div style="font-size:13px;color:var(--text-2)">1 284 personnes · colonnes Nom / ID / Email reconnues</div></div><button onClick="{{ dirRemove }}" aria-label="Retirer" style="width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:var(--text-3);cursor:pointer" style-hover="background:var(--surface-2)"><i class="icon-x" style="font-size:15px"></i></button></div></sc-if>
+              <sc-if value="{{ dirNone }}"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:16px;border-radius:8px;border:1px dashed var(--border-strong)"><div style="flex:1;min-width:240px"><div style="font-weight:600">Aucun annuaire dans ce fichier</div><div style="font-size:13px;color:var(--text-2)">Ajoutez <span style="font-family:var(--font-mono)">users.json</span> ou un fichier .csv, .tsv, .txt (Nom / ID / Email).</div></div><button onClick="{{ dirAdd }}" style="height:32px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer"><i class="icon-upload" style="font-size:14px"></i>Ajouter un annuaire</button></div></sc-if>
+              <sc-if value="{{ dirSkipped }}"><div style="display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:8px;background:var(--surface-2);color:var(--text-2)"><i class="icon-skip-forward" style="font-size:16px"></i><div style="flex:1;font-size:13px">Étape ignorée : les identifiants inconnus s’afficheront tels quels. Vous pourrez les nommer plus tard dans l’onglet Personnes.</div><button onClick="{{ dirAdd }}" style="border:0;background:none;color:var(--accent-text);font:500 13px var(--font-app);cursor:pointer">Ajouter quand même</button></div></sc-if>
+              <div style="display:flex;gap:10px;align-items:center">
+                <button onClick="{{ fileContinue }}" style="height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 16px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--accent-hover)">Importer l’archive<i class="icon-arrow-right" style="font-size:14px"></i></button>
+                <sc-if value="{{ dirCanSkip }}"><button onClick="{{ dirSkip }}" style="height:36px;padding:0 14px;border-radius:6px;border:0;background:transparent;color:var(--text-2);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)">Ignorer cette étape</button></sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ step3 }}">
+              <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">Choisir les conversations</h1><p style="margin:6px 0 0;color:var(--text-2)"><span style="font-family:var(--font-mono);font-size:13px">acme.slack.com</span> · connecté en tant que Camille Laurent</p></div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface)" style-focus-within="border-color:var(--focus);box-shadow:0 0 0 3px var(--accent-soft)">
+                  <i class="icon-search" style="font-size:16px;color:var(--text-3)"></i>
+                  <input value="{{ chq }}" onChange="{{ onChq }}" placeholder="Nom, ID ou lien Slack" aria-label="Rechercher une conversation" style="flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--text);font:14px var(--font-app)">
+                  <sc-if value="{{ chqTyping }}"><button onClick="{{ clearChq }}" aria-label="Effacer" style="width:24px;height:24px;border:0;border-radius:4px;background:transparent;color:var(--text-3);cursor:pointer"><i class="icon-x" style="font-size:14px"></i></button></sc-if>
+                </div>
+                <sc-if value="{{ chqEmpty }}"><div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);flex-wrap:wrap">Essayez :<button onClick="{{ ex1 }}" style="font:12px var(--font-mono);padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer">#general</button><button onClick="{{ ex2 }}" style="font:12px var(--font-mono);padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer">C0AE23W6W0J</button>ou collez un lien de conversation.</div></sc-if>
+                <sc-if value="{{ chqTyping }}"><div style="font-size:12px;color:var(--text-3)">{{ chCount }}</div></sc-if>
+              </div>
+              <div style="display:flex;gap:24px;flex-wrap:wrap">
+                <button onClick="{{ toggleMember }}" role="checkbox" aria-checked="{{ memberOnly }}" style="display:flex;gap:10px;align-items:flex-start;border:0;background:none;padding:0;cursor:pointer;text-align:left;color:var(--text);font:inherit;max-width:340px">
+                  <span style="width:16px;height:16px;border-radius:4px;margin-top:2px;flex:none;display:grid;place-items:center;background:{{ cbMemberBg }};border:1.5px solid {{ cbMemberBd }};color:var(--accent-fg)"><i class="icon-check" style="font-size:11px"></i></span>
+                  <span><span style="font-size:13px;font-weight:500;display:block">Uniquement les canaux dont je suis membre</span><span style="font-size:12px;color:var(--text-3)">Désactivé : liste complète de l’espace, plus longue à charger.</span></span>
+                </button>
+                <button onClick="{{ toggleResolve }}" role="checkbox" aria-checked="{{ resolveNames }}" style="display:flex;gap:10px;align-items:flex-start;border:0;background:none;padding:0;cursor:pointer;text-align:left;color:var(--text);font:inherit;max-width:300px">
+                  <span style="width:16px;height:16px;border-radius:4px;margin-top:2px;flex:none;display:grid;place-items:center;background:{{ cbResolveBg }};border:1.5px solid {{ cbResolveBd }};color:var(--accent-fg)"><i class="icon-check" style="font-size:11px"></i></span>
+                  <span><span style="font-size:13px;font-weight:500;display:block">Résoudre les noms des participants</span><span style="font-size:12px;color:var(--text-3)">Affiche les noms plutôt que les identifiants.</span></span>
+                </button>
+              </div>
+              <sc-if value="{{ capNotice }}"><div style="display:flex;gap:8px;align-items:center;padding:9px 12px;border-radius:6px;background:var(--info-soft);color:var(--text-2);font-size:13px"><i class="icon-info" style="font-size:14px"></i>1 512 canaux — seuls les 400 premiers sont affichés. Affinez la recherche pour trouver les autres.</div></sc-if>
+              <div style="border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden">
+                <sc-for list="{{ chRows }}" as="c" hint-placeholder-count="8">
+                  <button onClick="{{ c.toggle }}" role="checkbox" aria-checked="{{ c.selected }}" style="width:100%;display:flex;align-items:center;gap:12px;min-height:44px;padding:6px 14px;border:0;border-bottom:1px solid var(--border);background:{{ c.bg }};cursor:pointer;text-align:left;color:var(--text);font:inherit" style-hover="background:var(--surface-2)">
+                    <span style="width:16px;height:16px;border-radius:4px;flex:none;display:grid;place-items:center;background:{{ c.cbBg }};border:1.5px solid {{ c.cbBd }};color:var(--accent-fg)"><i class="icon-check" style="font-size:11px"></i></span>
+                    <i class="{{ c.icon }}" style="font-size:15px;color:var(--text-3);width:16px;text-align:center"></i>
+                    <span style="flex:1;min-width:0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-weight:500;overflow-wrap:anywhere">{{ c.name }}</span><span style="font:11.5px var(--font-mono);color:var(--text-3)">{{ c.id }}</span></span>
+                    <sc-if value="{{ c.archived }}"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface-3);color:var(--text-2)">archivé</span></sc-if>
+                    <sc-if value="{{ c.hasMeta }}"><span style="font-size:12px;color:var(--text-3);white-space:nowrap;font-variant-numeric:tabular-nums">{{ c.meta }}</span></sc-if>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ noCh }}"><div style="padding:40px 20px;text-align:center;color:var(--text-2)"><div style="font-weight:600;color:var(--text)">Aucune conversation ne correspond à « {{ chq }} »</div><div style="font-size:13px;margin-top:4px">Vérifiez l’orthographe, collez l’ID complet, ou désactivez « Uniquement les canaux dont je suis membre ».</div></div></sc-if>
+              </div>
+              <div style="position:sticky;bottom:0;display:flex;align-items:center;gap:12px;padding:12px 0;background:var(--bg)">
+                <span style="flex:1;font-size:13px;color:var(--text-2)">{{ selLabel }}</span>
+                <button onClick="{{ startImport }}" style="height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 16px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--accent-hover)">{{ importBtn }}<i class="icon-arrow-right" style="font-size:14px"></i></button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ step4 }}">
+              <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">Import en cours</h1><p style="margin:6px 0 0;color:var(--text-2)">{{ procSub }}</p></div>
+              <div style="border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:20px;display:flex;flex-direction:column;gap:16px">
+                <div role="progressbar" aria-valuenow="{{ procPctNum }}" aria-valuemin="0" aria-valuemax="100" style="height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden"><div style="height:100%;width:{{ procPct }};background:{{ procBarColor }};border-radius:3px;transition:width .3s"></div></div>
+                <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:13px">
+                  <sc-for list="{{ procLines }}" as="l" hint-placeholder-count="4">
+                    <li style="display:flex;align-items:center;gap:10px;color:{{ l.color }}">
+                      <sc-if value="{{ l.done }}"><i class="icon-circle-check" style="font-size:15px;color:var(--success)"></i></sc-if>
+                      <sc-if value="{{ l.running }}"><i class="icon-loader" style="font-size:15px;color:var(--accent-text);animation:lqspin 1s linear infinite"></i></sc-if>
+                      <sc-if value="{{ l.pending }}"><i class="icon-circle" style="font-size:15px;color:var(--border-strong)"></i></sc-if>
+                      <span style="flex:1;font-variant-numeric:tabular-nums">{{ l.text }}</span><span style="font:12px var(--font-mono);color:var(--text-3)">{{ l.right }}</span>
+                    </li>
+                  </sc-for>
+                </ul>
+                <sc-if value="{{ procError }}">
+                  <div role="alert" style="padding:14px;border-radius:8px;background:var(--danger-soft);display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;gap:8px;color:var(--danger);font-weight:600"><i class="icon-circle-alert" style="font-size:16px;margin-top:1px"></i>Impossible de lire #incident-2026-03-12</div>
+                    <div style="font-size:13px;color:var(--text);text-wrap:pretty">Slack n’a renvoyé aucun message pour cette conversation. Si elle n’est pas vide, ce jeton ne peut pas la lire : demandez à être ajouté au canal, puis réessayez.</div>
+                    <div style="font:12px/1.5 var(--font-mono);padding:8px 10px;border-radius:5px;background:var(--surface);color:var(--text-2);overflow-wrap:anywhere">conversations.history → {"ok":false,"error":"not_in_channel"} · C06INC12M03</div>
+                    <div style="display:flex;gap:8px;margin-top:2px"><button onClick="{{ retryImport }}" style="height:32px;padding:0 12px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer">Réessayer</button><button onClick="{{ skipErr }}" style="height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer">Ignorer et continuer</button></div>
+                  </div>
+                </sc-if>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--border);padding-top:14px"><span style="font-size:12px;color:var(--text-3);display:flex;gap:6px;align-items:center"><i class="icon-hard-drive" style="font-size:13px"></i>Écriture sur cet appareil</span><button onClick="{{ cancelImport }}" style="height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)">Annuler l’import</button></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ step5 }}">
+              <div style="display:flex;gap:14px;align-items:center"><div style="width:44px;height:44px;border-radius:50%;background:var(--success-soft);color:var(--success);display:grid;place-items:center"><i class="icon-check" style="font-size:22px"></i></div><div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">Archive prête</h1><p style="margin:4px 0 0;color:var(--text-2)">acme · importée le 13 mars 2026 à 17:21</p></div></div>
+              <dl style="margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden">
+                <sc-for list="{{ doneStats }}" as="s" hint-placeholder-count="6">
+                  <div style="padding:14px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);margin:0 -1px -1px 0"><dt style="font-size:12px;color:var(--text-3)">{{ s.label }}</dt><dd style="margin:4px 0 0;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums">{{ s.value }}</dd></div>
+                </sc-for>
+              </dl>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button onClick="{{ openArchive }}" style="height:38px;display:inline-flex;align-items:center;gap:8px;padding:0 18px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--accent-hover)">Ouvrir l’archive<i class="icon-arrow-right" style="font-size:15px"></i></button>
+                <button onClick="{{ importMore }}" style="height:38px;padding:0 14px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)">Importer d’autres conversations</button>
+              </div>
+            </sc-if>
+          </div>
+        </main>
+      </div>
+    </sc-if>
+
+    <!-- ARCHIVE -->
+    <sc-if value="{{ isArchive }}">
+      <div style="flex:1;min-height:0;display:flex;position:relative">
+        <sc-if value="{{ navVisible }}">
+          <aside aria-label="Navigateur de l’archive" style="width:{{ navW }};flex:none;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);min-height:0">
+            <div style="padding:12px 12px 10px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:10px;padding:2px 4px"><span style="width:28px;height:28px;border-radius:6px;background:var(--surface-3);display:grid;place-items:center;font-weight:600">A</span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-weight:600;line-height:1.2">acme</span><span style="font:11px var(--font-mono);color:var(--text-3)">acme.slack.com · Slack</span></span></div>
+              <div style="display:flex;align-items:center;gap:6px;height:32px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2)" style-focus-within="border-color:var(--focus);background:var(--surface)">
+                <i class="icon-search" style="font-size:14px;color:var(--text-3)"></i>
+                <input ref="{{ navSearchRef }}" value="{{ navQ }}" onChange="{{ onNavQ }}" placeholder="Nom, ID ou lien" aria-label="Filtrer les conversations" style="flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--text);font:13px var(--font-app)">
+                <sc-if value="{{ navQFilled }}"><button onClick="{{ clearNavQ }}" aria-label="Effacer" style="border:0;background:none;color:var(--text-3);cursor:pointer;padding:0"><i class="icon-x" style="font-size:13px"></i></button></sc-if>
+                <sc-if value="{{ navQEmpty }}"><kbd style="font:11px var(--font-mono);color:var(--text-3);border:1px solid var(--border);border-radius:4px;padding:0 4px;background:var(--surface)">⌘K</kbd></sc-if>
+              </div>
+              <div role="tablist" style="display:grid;grid-template-columns:1fr 1fr;padding:2px;border-radius:7px;background:var(--surface-2);gap:2px">
+                <button role="tab" onClick="{{ setTabConv }}" style="height:28px;border:0;border-radius:5px;background:{{ tabConvBg }};box-shadow:{{ tabConvSh }};color:var(--text);font:500 12.5px var(--font-app);cursor:pointer">Conversations</button>
+                <button role="tab" onClick="{{ setTabPeople }}" style="height:28px;border:0;border-radius:5px;background:{{ tabPeopleBg }};box-shadow:{{ tabPeopleSh }};color:var(--text);font:500 12.5px var(--font-app);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">Personnes<sc-if value="{{ hasUnresolved }}"><span style="min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--warning-soft);color:var(--warning);font-size:10.5px;display:grid;place-items:center">{{ unresolvedCount }}</span></sc-if></button>
+              </div>
+            </div>
+            <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 8px 12px">
+              <sc-for list="{{ sections }}" as="s" hint-placeholder-count="3">
+                <div style="padding:10px 8px 4px;font-size:11.5px;font-weight:600;color:var(--text-3);display:flex;justify-content:space-between"><span>{{ s.title }}</span><span style="font-weight:400">{{ s.n }}</span></div>
+                <sc-for list="{{ s.items }}" as="it">
+                  <button onClick="{{ it.open }}" aria-current="{{ it.current }}" style="width:100%;height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border:0;border-radius:6px;background:{{ it.bg }};color:{{ it.fg }};font:{{ it.font }};cursor:pointer;text-align:left" style-hover="background:{{ it.hbg }}">
+                    <i class="{{ it.icon }}" style="font-size:14px;opacity:.75;width:15px;text-align:center"></i><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.name }}</span>
+                    <sc-if value="{{ it.archived }}"><span style="font-size:10.5px;padding:1px 5px;border-radius:3px;background:var(--surface-3);color:var(--text-3)">archivé</span></sc-if>
+                  </button>
+                </sc-for>
+              </sc-for>
+              <sc-if value="{{ navEmpty }}"><div style="padding:24px 12px;font-size:13px;color:var(--text-3);text-align:center">Aucune conversation ne correspond.</div></sc-if>
+              <div style="padding:14px 8px 4px;font-size:11.5px;font-weight:600;color:var(--text-3);display:flex;justify-content:space-between;align-items:center"><span>Personnes dans la conversation</span><sc-if value="{{ hasAuthor }}"><button onClick="{{ clearAuthor }}" style="border:0;background:none;color:var(--accent-text);font:500 11.5px var(--font-app);cursor:pointer;padding:0">Tout afficher</button></sc-if></div>
+              <sc-for list="{{ navPeople }}" as="p" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;border-radius:6px;background:{{ p.bg }}">
+                  <button onClick="{{ p.toggle }}" aria-pressed="{{ p.active }}" title="{{ p.tip }}" style="flex:1;min-width:0;height:30px;display:flex;align-items:center;gap:8px;padding:0 8px;border:0;background:transparent;color:{{ p.fg }};font:{{ p.font }};cursor:pointer;text-align:left">
+                    <span style="width:18px;height:18px;border-radius:4px;background:{{ p.color }};color:#fff;display:grid;place-items:center;font:700 8.5px var(--font-read);flex:none">{{ p.initials }}</span>
+                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:{{ p.ff }}">{{ p.name }}</span>
+                    <sc-if value="{{ p.active }}"><i class="icon-list-filter" style="font-size:13px"></i></sc-if>
+                    <span style="font-size:11.5px;color:var(--text-3);font-variant-numeric:tabular-nums">{{ p.count }}</span>
+                  </button>
+                  <sc-if value="{{ p.unresolved }}"><button onClick="{{ p.fix }}" title="Donner un nom" aria-label="Donner un nom à {{ p.name }}" style="width:26px;height:26px;margin-right:2px;border:0;border-radius:5px;background:transparent;color:var(--warning);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--warning-soft)"><i class="icon-pencil" style="font-size:13px"></i></button></sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-3)"><span>Annuaire : 1 284 personnes</span><span title="Stockée sur cet appareil" style="display:flex;align-items:center;gap:4px"><i class="icon-hard-drive" style="font-size:12px"></i>Local</span></div>
+          </aside>
+        </sc-if>
+
+        <sc-if value="{{ convVisible }}">
+          <section style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--c-bg)">
+            <sc-if value="{{ isConvTab }}">
+              <div style="min-height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px 8px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap">
+                <sc-if value="{{ isPhone }}"><button onClick="{{ backToNav }}" aria-label="Retour aux conversations" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center"><i class="icon-chevron-left" style="font-size:18px"></i></button></sc-if>
+                <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 180px">
+                  <i class="{{ convIcon }}" style="font-size:16px;color:var(--text-3)"></i>
+                  <h1 style="margin:0;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ convName }}</h1>
+                  <span style="font:500 12px var(--font-app);padding:2px 7px;border-radius:4px;background:{{ countBg }};color:{{ countFg }};white-space:nowrap;font-variant-numeric:tabular-nums">{{ countLabel }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;height:32px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);flex:0 1 280px;min-width:160px" style-focus-within="border-color:var(--focus);background:var(--surface)">
+                  <i class="icon-search" style="font-size:14px;color:var(--text-3)"></i>
+                  <input ref="{{ convSearchRef }}" value="{{ q }}" onChange="{{ onQ }}" placeholder="Rechercher dans la conversation" aria-label="Rechercher dans la conversation" style="flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--text);font:13px var(--font-app)">
+                  <sc-if value="{{ qFilled }}"><button onClick="{{ clearQ }}" aria-label="Effacer la recherche" style="width:20px;height:20px;border:0;border-radius:4px;background:var(--surface-3);color:var(--text-2);cursor:pointer;display:grid;place-items:center;padding:0"><i class="icon-x" style="font-size:12px"></i></button></sc-if>
+                  <sc-if value="{{ qEmpty }}"><kbd style="font:11px var(--font-mono);color:var(--text-3);border:1px solid var(--border);border-radius:4px;padding:0 4px;background:var(--surface)">⌘F</kbd></sc-if>
+                </div>
+                <div style="display:flex;align-items:center;gap:2px;position:relative">
+                  <button onClick="{{ toggleEmail }}" aria-pressed="{{ showEmail }}" title="{{ emailTip }}" style="width:32px;height:32px;border:0;border-radius:6px;background:{{ emailBg }};color:{{ emailFg }};cursor:pointer;display:grid;place-items:center" style-hover="background:var(--surface-3)"><i class="icon-at-sign" style="font-size:16px"></i></button>
+                  <button onClick="{{ toggleTheme }}" title="{{ themeTip }}" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--surface-2)"><i class="{{ themeIcon }}" style="font-size:16px"></i></button>
+                  <sc-if value="{{ notPhone }}"><span title="Heures affichées dans le fuseau Europe/Paris" style="display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;border-radius:5px;font:12px var(--font-mono);color:var(--text-2);background:var(--surface-2);margin:0 2px;white-space:nowrap"><i class="icon-globe" style="font-size:12px"></i>UTC+01:00</span></sc-if>
+                  <button onClick="{{ toggleLang }}" title="Langue" aria-haspopup="menu" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--surface-2)"><i class="icon-languages" style="font-size:16px"></i></button>
+                  <sc-if value="{{ langOpen }}">
+                    <div role="menu" style="position:absolute;right:0;top:38px;width:220px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-3);padding:4px;z-index:30">
+                      <sc-for list="{{ langs }}" as="l"><button role="menuitemradio" aria-checked="{{ l.sel }}" onClick="{{ closeMenus }}" style="width:100%;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:0;border-radius:5px;background:transparent;color:var(--text);font:13px var(--font-app);cursor:pointer;text-align:left" style-hover="background:var(--surface-2)"><span style="width:14px">{{ l.check }}</span><span style="flex:1">{{ l.label }}</span><span style="font:11px var(--font-mono);color:var(--text-3)">{{ l.code }}</span></button></sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+              <sc-if value="{{ showErrBanner }}"><div role="alert" style="display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--danger-soft);color:var(--danger);font-size:13px;border-bottom:1px solid var(--border)"><i class="icon-circle-alert" style="font-size:15px"></i><span style="flex:1"><b style="font-weight:600">Échec de l’export :</b> <span style="color:var(--text)">l’espace de stockage du navigateur est plein.</span></span><button onClick="{{ dismissErr }}" aria-label="Fermer" style="border:0;background:none;color:inherit;cursor:pointer"><i class="icon-x" style="font-size:15px"></i></button></div></sc-if>
+              <sc-if value="{{ showUnknownBanner }}"><div style="display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--warning-soft);color:var(--text);font-size:13px;border-bottom:1px solid var(--border);flex-wrap:wrap"><i class="icon-user-round-x" style="font-size:15px;color:var(--warning)"></i><span style="flex:1;min-width:200px">{{ unknownText }}</span><button onClick="{{ goPeople }}" style="border:0;background:none;color:var(--warning);font:600 13px var(--font-app);cursor:pointer;padding:0">Leur donner un nom →</button><button onClick="{{ dismissUnknown }}" aria-label="Masquer" style="border:0;background:none;color:var(--text-3);cursor:pointer"><i class="icon-x" style="font-size:15px"></i></button></div></sc-if>
+              <div style="flex:1;overflow:auto;min-height:0;padding:4px 0 28px">
+                <div style="padding:14px 20px 6px;font-size:12px;color:var(--c-muted);font-family:var(--font-app);display:flex;gap:6px;align-items:center;flex-wrap:wrap"><i class="icon-calendar-range" style="font-size:13px"></i>{{ rangeLine }}</div>
+                <sc-for list="{{ rows }}" as="row" hint-placeholder-count="6">
+                  <sc-if value="{{ row.divider }}">
+                    <div style="position:relative;display:flex;justify-content:center;margin:14px 0 4px;position:sticky;top:0;z-index:2"><span style="position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--c-divider)"></span><span style="position:relative;font:700 13px var(--font-read);color:var(--c-text);padding:3px 14px;border:1px solid var(--c-divider);border-radius:14px;background:var(--c-bg)">{{ row.label }}</span></div>
+                  </sc-if>
+                  <sc-if value="{{ row.isMsg }}"><dc-import name="Loquarium Message" m="{{ row.msg }}" hint-size="100%,56px"></dc-import></sc-if>
+                </sc-for>
+                <sc-if value="{{ noResults }}"><div style="padding:64px 20px;text-align:center;font-family:var(--font-app)"><div style="width:40px;height:40px;border-radius:10px;margin:0 auto 12px;background:var(--surface-2);display:grid;place-items:center;color:var(--text-3)"><i class="icon-search-x" style="font-size:18px"></i></div><div style="font-weight:600">Aucun message ne correspond à cette recherche.</div><div style="font-size:13px;color:var(--text-3);margin-top:4px">« {{ q }} »{{ authorSuffix }}</div><button onClick="{{ clearAll }}" style="margin-top:14px;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer">Effacer la recherche</button></div></sc-if>
+                <sc-if value="{{ convEmpty }}"><div style="padding:64px 20px;text-align:center;color:var(--text-3);font-family:var(--font-app)">Ce canal archivé ne contient aucun message dans l’export.</div></sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isPeopleTab }}">
+              <div style="flex:1;overflow:auto;background:var(--bg)">
+                <div style="max-width:1000px;padding:{{ pagePad }};display:flex;flex-direction:column;gap:18px">
+                  <div><h1 style="margin:0;font-size:20px;font-weight:600">Personnes</h1><p style="margin:6px 0 0;font-size:13px;color:var(--text-2);display:flex;gap:6px;align-items:center"><i class="icon-hard-drive" style="font-size:13px;color:var(--text-3)"></i>Les noms que vous corrigez restent sur cet appareil et sont utilisés dans les exports.</p></div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <sc-for list="{{ pfChips }}" as="f"><button onClick="{{ f.go }}" aria-pressed="{{ f.on }}" style="height:28px;padding:0 10px;border-radius:14px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }};font:500 12.5px var(--font-app);cursor:pointer">{{ f.label }}</button></sc-for>
+                  </div>
+                  <div style="border:1px solid var(--border);border-radius:10px;background:var(--surface)">
+                    <sc-if value="{{ notPhone }}"><div style="display:grid;grid-template-columns:minmax(0,1.6fr) 130px minmax(0,1.3fr) 70px 110px;gap:14px;padding:9px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-3);background:var(--surface-2);border-radius:10px 10px 0 0"><span>Personne</span><span>ID</span><span>E-mail</span><span style="text-align:right">Messages</span><span>Statut</span></div></sc-if>
+                    <sc-for list="{{ peopleRows }}" as="p" hint-placeholder-count="6">
+                      <div style="display:grid;grid-template-columns:{{ peopleCols }};gap:14px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);position:relative">
+                        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                          <span style="width:28px;height:28px;border-radius:6px;background:{{ p.color }};color:#fff;display:grid;place-items:center;font:700 11px var(--font-read);flex:none">{{ p.initials }}</span>
+                          <sc-if value="{{ p.editing }}">
+                            <div style="flex:1;min-width:0;position:relative">
+                              <input value="{{ editVal }}" onChange="{{ onEditVal }}" onKeyDown="{{ onEditKey }}" autoFocus="{{ true }}" placeholder="Nom de la personne" style="width:100%;box-sizing:border-box;height:32px;padding:0 10px;border:1px solid var(--focus);box-shadow:0 0 0 3px var(--accent-soft);border-radius:6px;background:var(--surface);color:var(--text);font:13px var(--font-app);outline:none">
+                              <div role="listbox" style="position:absolute;left:0;top:38px;width:340px;max-width:80vw;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-3);padding:4px;z-index:10">
+                                <div style="padding:6px 10px 4px;font-size:11.5px;font-weight:600;color:var(--text-3)">Suggestions</div>
+                                <sc-for list="{{ p.suggestions }}" as="s"><button onClick="{{ s.pick }}" style="width:100%;display:flex;flex-direction:column;gap:1px;padding:7px 10px;border:0;border-radius:5px;background:transparent;cursor:pointer;text-align:left;color:var(--text);font:inherit" style-hover="background:var(--surface-2)"><span style="font-size:13px;font-weight:500">{{ s.name }}</span><span style="font-size:12px;color:var(--text-3)">{{ s.why }}</span></button></sc-for>
+                                <div style="display:flex;justify-content:flex-end;gap:6px;padding:6px 6px 4px;border-top:1px solid var(--border);margin-top:4px"><button onClick="{{ cancelEdit }}" style="height:28px;padding:0 10px;border:0;border-radius:5px;background:transparent;color:var(--text-2);font:500 12.5px var(--font-app);cursor:pointer">Annuler</button><button onClick="{{ saveEdit }}" style="height:28px;padding:0 10px;border:0;border-radius:5px;background:var(--accent);color:var(--accent-fg);font:500 12.5px var(--font-app);cursor:pointer">Enregistrer</button></div>
+                              </div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ p.notEditing }}">
+                            <span style="min-width:0;display:flex;flex-direction:column"><span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:{{ p.ff }};color:{{ p.nameColor }}">{{ p.label }}</span><sc-if value="{{ isPhone }}"><span style="font:11px var(--font-mono);color:var(--text-3)">{{ p.id }}</span></sc-if></span>
+                            <sc-if value="{{ p.canName }}"><button onClick="{{ p.startEdit }}" style="height:26px;display:inline-flex;align-items:center;gap:5px;padding:0 8px;border-radius:5px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 12px var(--font-app);cursor:pointer;white-space:nowrap"><i class="icon-pencil" style="font-size:12px"></i>Nommer</button></sc-if>
+                            <sc-if value="{{ p.fixed }}"><button onClick="{{ p.startEdit }}" aria-label="Modifier le nom" style="width:24px;height:24px;border:0;border-radius:5px;background:transparent;color:var(--text-3);cursor:pointer"><i class="icon-pencil" style="font-size:12px"></i></button></sc-if>
+                          </sc-if>
+                        </div>
+                        <sc-if value="{{ notPhone }}">
+                          <span style="font:12px var(--font-mono);color:var(--text-2)">{{ p.id }}</span>
+                          <span style="font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.email }}</span>
+                          <span style="font-size:13px;text-align:right;font-variant-numeric:tabular-nums">{{ p.count }}</span>
+                        </sc-if>
+                        <span><span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:10px;background:{{ p.sBg }};color:{{ p.sFg }};white-space:nowrap">{{ p.status }}</span></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ threadDocked }}">
+          <aside aria-label="Fil" style="width:420px;flex:none;display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--c-bg)">
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px 0 18px;border-bottom:1px solid var(--border);background:var(--surface)"><span style="font-weight:600;font-size:15px">Fil</span><span style="font-size:13px;color:var(--text-3)"># {{ th.conv }}</span><span style="flex:1"></span><button onClick="{{ closeThread }}" title="Fermer (Échap)" aria-label="Fermer le fil" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--surface-2)"><i class="icon-x" style="font-size:17px"></i></button></div>
+            <div style="flex:1;overflow:auto;padding:6px 0 20px">
+              <dc-import name="Loquarium Message" m="{{ th.root }}" hint-size="100%,120px"></dc-import>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 20px;font:13px var(--font-read);color:var(--c-muted)"><span>{{ th.count }}</span><span style="flex:1;border-top:1px solid var(--c-divider)"></span></div>
+              <sc-for list="{{ th.replies }}" as="r" hint-placeholder-count="3"><dc-import name="Loquarium Message" m="{{ r.msg }}" hint-size="100%,60px"></dc-import></sc-for>
+            </div>
+          </aside>
+        </sc-if>
+        <sc-if value="{{ threadOverlay }}">
+          <div style="position:absolute;inset:0;z-index:20;display:flex;justify-content:flex-end;background:var(--scrim)">
+            <aside aria-label="Fil" style="width:{{ threadW }};height:100%;display:flex;flex-direction:column;background:var(--c-bg);box-shadow:var(--shadow-3)">
+              <div style="height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px 0 14px;border-bottom:1px solid var(--border);background:var(--surface)"><button onClick="{{ closeThread }}" aria-label="Fermer le fil" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center"><i class="icon-chevron-left" style="font-size:18px"></i></button><span style="font-weight:600;font-size:15px">Fil</span><span style="font-size:13px;color:var(--text-3)"># {{ th.conv }}</span></div>
+              <div style="flex:1;overflow:auto;padding:6px 0 20px">
+                <dc-import name="Loquarium Message" m="{{ th.root }}" hint-size="100%,120px"></dc-import>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 20px;font:13px var(--font-read);color:var(--c-muted)"><span>{{ th.count }}</span><span style="flex:1;border-top:1px solid var(--c-divider)"></span></div>
+                <sc-for list="{{ th.replies }}" as="r" hint-placeholder-count="3"><dc-import name="Loquarium Message" m="{{ r.msg }}" hint-size="100%,60px"></dc-import></sc-for>
+              </div>
+            </aside>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- EXPORTS -->
+    <sc-if value="{{ isExports }}">
+      <main style="flex:1;overflow:auto;min-height:0">
+        <div style="max-width:1120px;margin:0 auto;padding:{{ pagePad }};display:flex;flex-direction:column;gap:20px">
+          <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em">Exports</h1><p style="margin:6px 0 0;font-size:13px;color:var(--text-3)">Historique de ce que vous avez exporté depuis cet appareil. Les fichiers eux-mêmes sont dans vos téléchargements.</p></div>
+          <div style="border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden">
+            <sc-if value="{{ notPhone }}"><div style="display:grid;grid-template-columns:minmax(0,2.4fr) 70px minmax(0,1.2fr) minmax(0,1.2fr) 150px 70px;gap:14px;padding:9px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-3);background:var(--surface-2)"><span>Fichier</span><span>Format</span><span>Portée</span><span>Archive</span><span>Date</span><span style="text-align:right">Taille</span></div></sc-if>
+            <sc-for list="{{ exportRows }}" as="e" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:{{ exportCols }};gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px">
+                <span style="display:flex;gap:10px;align-items:center;min-width:0"><i class="{{ e.icon }}" style="font-size:16px;color:var(--text-3)"></i><span style="min-width:0;display:flex;flex-direction:column"><span style="font:12.5px var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.file }}</span><sc-if value="{{ isPhone }}"><span style="font-size:12px;color:var(--text-3)">{{ e.fmt }} · {{ e.scope }} · {{ e.date }}</span></sc-if></span></span>
+                <sc-if value="{{ notPhone }}">
+                  <span><span style="font:600 11px var(--font-mono);padding:2px 6px;border-radius:4px;background:var(--surface-3);color:var(--text-2)">{{ e.fmt }}</span></span>
+                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.scope }}</span>
+                  <span style="color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.archive }}</span>
+                  <span style="color:var(--text-2);font-variant-numeric:tabular-nums">{{ e.date }}</span>
+                  <span style="text-align:right;color:var(--text-2);font-variant-numeric:tabular-nums">{{ e.size }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;padding:14px 16px;border:1px dashed var(--border-strong);border-radius:10px;flex-wrap:wrap"><i class="icon-shield-check" style="font-size:18px;color:var(--text-3)"></i><div style="flex:1;min-width:220px"><div style="font-weight:600;font-size:13px">Dossiers de preuve</div><div style="font-size:12.5px;color:var(--text-2)">PDF + HTML + JSON avec manifeste d’intégrité SHA-256, et caviardage des noms, e-mails et téléphones.</div></div><span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent-text)"><i class="icon-lock" style="font-size:11px"></i>Pro</span></div>
+        </div>
+      </main>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}">
+      <main style="flex:1;overflow:auto;padding:{{ pagePad }}"><h1 style="margin:0;font-size:22px;font-weight:600">Réglages</h1><p style="color:var(--text-3);font-size:13px">Préférences · Données sur cet appareil · Connexions Slack · Offre et facturation — prévus pour la prochaine passe.</p></main>
+    </sc-if>
+
+    <sc-if value="{{ showBottomNav }}">
+      <nav aria-label="Navigation principale" style="height:60px;flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);background:var(--surface)">
+        <sc-for list="{{ bottomItems }}" as="n"><button onClick="{{ n.go }}" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:{{ n.fg }};font:500 10.5px var(--font-app);cursor:pointer"><i class="{{ n.icon }}" style="font-size:19px"></i>{{ n.label }}</button></sc-for>
+      </nav>
+    </sc-if>
+  </div>
+
+  <!-- EXPORT SHEET -->
+  <sc-if value="{{ exportOpen }}">
+    <div style="position:absolute;inset:0;z-index:50;display:flex;justify-content:flex-end">
+      <div onClick="{{ closeExport }}" style="position:absolute;inset:0;background:var(--scrim)"></div>
+      <aside role="dialog" aria-modal="true" aria-label="Exporter" style="position:relative;width:{{ sheetW }};height:100%;background:var(--surface);box-shadow:var(--shadow-3);display:flex;flex-direction:column">
+        <div style="height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px 0 20px;border-bottom:1px solid var(--border)"><h2 style="margin:0;font-size:16px;font-weight:600;flex:1">Exporter la conversation</h2><button onClick="{{ closeExport }}" title="Fermer (Échap)" aria-label="Fermer" style="width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--surface-2)"><i class="icon-x" style="font-size:17px"></i></button></div>
+        <div style="flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:22px">
+          <section style="display:flex;flex-direction:column;gap:8px">
+            <h3 style="margin:0;font-size:12px;font-weight:600;color:var(--text-3)">Portée</h3>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent-soft)"><span style="width:16px;height:16px;border-radius:50%;border:5px solid var(--accent);background:var(--surface);flex:none"></span><span style="flex:1;font-weight:500">Cette conversation</span><span style="font-size:12px;color:var(--text-2)">{{ convName }} · {{ countLabel }}</span></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--text-3)"><span style="padding:3px 8px;border:1px dashed var(--border-strong);border-radius:4px">Sélection</span><span style="padding:3px 8px;border:1px dashed var(--border-strong);border-radius:4px">Plage de dates</span><span style="padding:3px 8px;border:1px dashed var(--border-strong);border-radius:4px">Plusieurs canaux</span><span style="align-self:center">bientôt</span></div>
+          </section>
+          <section style="display:flex;flex-direction:column;gap:8px">
+            <h3 style="margin:0;font-size:12px;font-weight:600;color:var(--text-3)">Format</h3>
+            <sc-for list="{{ formats }}" as="f" hint-placeholder-count="5">
+              <button onClick="{{ f.pick }}" role="radio" aria-checked="{{ f.selected }}" style="display:flex;gap:12px;align-items:flex-start;padding:11px 12px;border-radius:8px;border:1.5px solid {{ f.bd }};background:{{ f.bg }};cursor:pointer;text-align:left;color:var(--text);font:inherit" style-hover="border-color:{{ f.hbd }}">
+                <i class="{{ f.icon }}" style="font-size:18px;color:{{ f.ic }};margin-top:1px"></i>
+                <span style="flex:1;min-width:0"><span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:500">{{ f.name }}</span><sc-if value="{{ f.free }}"><span style="font-size:11px;padding:1px 6px;border-radius:4px;background:var(--success-soft);color:var(--success)">Gratuit</span></sc-if><sc-if value="{{ f.pro }}"><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent-text)"><i class="icon-lock" style="font-size:10px"></i>Pro</span></sc-if></span><span style="display:block;font-size:12.5px;color:var(--text-2);margin-top:2px;text-wrap:pretty">{{ f.desc }}</span></span>
+              </button>
+            </sc-for>
+          </section>
+          <sc-if value="{{ fmtFree }}">
+            <section style="display:flex;flex-direction:column;gap:10px">
+              <h3 style="margin:0;font-size:12px;font-weight:600;color:var(--text-3)">Options</h3>
+              <button onClick="{{ toggleExEmails }}" role="switch" aria-checked="{{ exEmails }}" style="display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;cursor:pointer;color:var(--text);font:13px var(--font-app);text-align:left"><span style="width:30px;height:18px;border-radius:9px;background:{{ swBg }};position:relative;flex:none;transition:background .15s"><span style="position:absolute;top:2px;left:{{ swLeft }};width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s"></span></span>Inclure les adresses e-mail</button>
+              <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:110px;color:var(--text-2)">Thème</span><div style="display:inline-flex;padding:2px;border-radius:6px;background:var(--surface-2);gap:2px"><button onClick="{{ exLight }}" style="height:26px;padding:0 10px;border:0;border-radius:5px;background:{{ exLightBg }};box-shadow:{{ exLightSh }};color:var(--text);font:500 12.5px var(--font-app);cursor:pointer">Clair</button><button onClick="{{ exDark }}" style="height:26px;padding:0 10px;border:0;border-radius:5px;background:{{ exDarkBg }};box-shadow:{{ exDarkSh }};color:var(--text);font:500 12.5px var(--font-app);cursor:pointer">Sombre</button></div></div>
+              <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:110px;color:var(--text-2)">Fuseau horaire</span><span style="height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--border-strong);border-radius:6px;font:12.5px var(--font-mono)">Europe/Paris · UTC+01:00<i class="icon-chevron-down" style="font-size:12px;color:var(--text-3)"></i></span></div>
+            </section>
+            <section style="display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              <sc-for list="{{ exSummary }}" as="s"><div style="display:flex;gap:12px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12.5px"><span style="width:84px;flex:none;color:var(--text-3)">{{ s.k }}</span><span style="min-width:0;overflow-wrap:anywhere;font-family:{{ s.ff }}">{{ s.v }}</span></div></sc-for>
+            </section>
+          </sc-if>
+          <sc-if value="{{ fmtPro }}">
+            <section style="padding:16px;border-radius:10px;background:var(--accent-soft);display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;gap:8px;align-items:center;font-weight:600;color:var(--accent-text)"><i class="icon-lock" style="font-size:15px"></i>{{ proName }} fait partie de Loquarium Pro</div>
+              <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text);display:flex;flex-direction:column;gap:4px"><li>PDF paginé et dossiers de preuve avec empreintes SHA-256</li><li>Caviardage des noms, e-mails et numéros de téléphone</li><li>Exports de plusieurs canaux et de plages de dates</li></ul>
+              <div style="display:flex;gap:8px"><button onClick="{{ seePro }}" style="height:34px;padding:0 14px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer">Découvrir Pro</button><button onClick="{{ backToHtml }}" style="height:34px;padding:0 12px;border-radius:6px;border:0;background:transparent;color:var(--text-2);font:500 13px var(--font-app);cursor:pointer">Exporter en HTML gratuitement</button></div>
+            </section>
+          </sc-if>
+        </div>
+        <div style="flex:none;padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;min-height:36px">
+          <sc-if value="{{ exIdle }}"><span style="flex:1;font-size:12px;color:var(--text-3);display:flex;gap:6px;align-items:center"><i class="icon-hard-drive" style="font-size:12px"></i>Généré dans ce navigateur</span><button onClick="{{ closeExport }}" style="height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer">Annuler</button><button onClick="{{ generate }}" disabled="{{ fmtPro }}" style="height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 16px;border-radius:6px;border:0;background:var(--accent);opacity:{{ genOpacity }};color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer"><i class="icon-download" style="font-size:14px"></i>{{ genLabel }}</button></sc-if>
+          <sc-if value="{{ exGen }}"><i class="icon-loader" style="font-size:16px;color:var(--accent-text);animation:lqspin 1s linear infinite"></i><span style="flex:1;font-size:13px">Génération du fichier… 12 messages, 3 réponses</span><button onClick="{{ cancelGen }}" style="height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer">Annuler</button></sc-if>
+          <sc-if value="{{ exDone }}"><i class="icon-circle-check" style="font-size:17px;color:var(--success)"></i><span style="flex:1;min-width:0;font-size:13px"><b style="font-weight:600">Téléchargé</b><span style="display:block;font:11.5px var(--font-mono);color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ exFile }}</span></span><button onClick="{{ goExports }}" style="height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 13px var(--font-app);cursor:pointer;white-space:nowrap">Voir l’historique</button></sc-if>
+          <sc-if value="{{ exErr }}"><i class="icon-circle-alert" style="font-size:17px;color:var(--danger)"></i><span style="flex:1;font-size:13px;color:var(--danger)">Échec : stockage du navigateur plein.</span><button onClick="{{ generate }}" style="height:36px;padding:0 14px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 13px var(--font-app);cursor:pointer">Réessayer</button></sc-if>
+        </div>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ drop }}">
+    <div style="position:absolute;inset:0;z-index:60;background:var(--scrim);padding:16px;pointer-events:none">
+      <div style="height:100%;box-sizing:border-box;border:2px dashed var(--accent-line);border-radius:14px;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px">
+        <div style="width:52px;height:52px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center"><i class="icon-upload" style="font-size:24px"></i></div>
+        <div style="font-size:18px;font-weight:600">Déposez pour ouvrir</div>
+        <div style="font-size:13px;color:var(--text-2)">ZIP d’espace de travail ou fichiers .json — ils ne quittent pas ce navigateur.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isSignin }}">
+    <div style="position:absolute;inset:0;z-index:80;display:flex;background:var(--bg);overflow:auto">
+      <main style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;padding:{{ authPad }};background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:7px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font:600 15px/1 var(--font-app)">L</span><span style="font:600 16px var(--font-app);letter-spacing:-.01em">Loquarium</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 0">
+          <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:22px">
+            <sc-if value="{{ authEmailStep }}">
+              <div><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-.01em">Se connecter</h1><p style="margin:8px 0 0;color:var(--text-2);text-wrap:pretty">Accédez à vos archives de conversations sur cet appareil.</p></div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button style="height:40px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)"><span style="width:16px;height:16px;border-radius:3px;background:var(--surface-3)"></span>Continuer avec Google</button>
+                <button style="height:40px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)"><span style="width:16px;height:16px;border-radius:3px;background:var(--surface-3)"></span>Continuer avec Microsoft</button>
+                <button style="height:40px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--surface-2)"><i class="icon-building-2" style="font-size:16px;color:var(--text-2)"></i>SSO d’entreprise</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text-3)"><span style="flex:1;border-top:1px solid var(--border)"></span>ou par e-mail<span style="flex:1;border-top:1px solid var(--border)"></span></div>
+              <form onSubmit="{{ authSubmit }}" style="display:flex;flex-direction:column;gap:12px;margin:0">
+                <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500">Adresse e-mail professionnelle</span>
+                  <input type="email" value="{{ authEmail }}" onChange="{{ onAuthEmail }}" placeholder="prenom.nom@cabinet.fr" autocomplete="email" style="height:40px;border:1px solid var(--border-strong);border-radius:6px;padding:0 12px;background:var(--surface);color:var(--text);font:14px var(--font-app);outline:none" style-focus="border-color:var(--focus);box-shadow:0 0 0 3px var(--accent-soft)">
+                </label>
+                <button type="submit" style="height:40px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--accent-hover)">Recevoir un lien de connexion<i class="icon-arrow-right" style="font-size:15px"></i></button>
+              </form>
+              <p style="margin:0;font-size:13px;color:var(--text-3)">Pas encore de compte ? Le même lien crée votre compte, gratuitement.</p>
+            </sc-if>
+            <sc-if value="{{ authSentStep }}">
+              <div style="width:44px;height:44px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center"><i class="icon-mail-check" style="font-size:20px"></i></div>
+              <div><h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-.01em">Vérifiez votre boîte mail</h1><p style="margin:8px 0 0;color:var(--text-2);text-wrap:pretty">Nous avons envoyé un lien de connexion à <b style="font-weight:600;color:var(--text)">{{ authEmailShown }}</b>. Il est valable 15 minutes et ne fonctionne qu’une fois.</p></div>
+              <button onClick="{{ authOpenLink }}" style="height:40px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;border:0;background:var(--accent);color:var(--accent-fg);font:500 14px var(--font-app);cursor:pointer" style-hover="background:var(--accent-hover)">J’ai cliqué sur le lien (démo)</button>
+              <div style="display:flex;gap:16px;font-size:13px"><button onClick="{{ authResend }}" style="border:0;background:none;padding:0;color:var(--accent-text);font:500 13px var(--font-app);cursor:pointer">Renvoyer le lien</button><button onClick="{{ authBack }}" style="border:0;background:none;padding:0;color:var(--text-2);font:500 13px var(--font-app);cursor:pointer">Utiliser une autre adresse</button></div>
+            </sc-if>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-3)">
+          <span style="display:flex;align-items:center;gap:6px"><i class="icon-shield-check" style="font-size:13px"></i>Votre compte ne contient aucun message : les conversations restent sur votre appareil.</span>
+          <span style="display:flex;gap:14px"><a href="#" style="color:var(--text-3);text-decoration:none">Confidentialité</a><a href="#" style="color:var(--text-3);text-decoration:none">Conditions</a><span style="display:flex;align-items:center;gap:4px"><i class="icon-languages" style="font-size:12px"></i>Français</span></span>
+        </div>
+      </main>
+      <sc-if value="{{ authAside }}">
+        <aside aria-hidden="true" style="flex:1 1 560px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:18px;padding:48px 56px;background:var(--bg);border-left:1px solid var(--border)">
+          <div style="max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px">
+            <div style="font:12px var(--font-mono);color:var(--text-3)">acme · #product-launch · mardi 10 février 2026</div>
+            <div style="border:1px solid var(--border);border-radius:10px;background:var(--c-bg);padding:8px 0 12px;box-shadow:var(--shadow-2);pointer-events:none">
+              <sc-for list="{{ authPreview }}" as="row"><dc-import name="Loquarium Message" m="{{ row.msg }}" still="{{ true }}" hint-size="100%,72px"></dc-import></sc-for>
+            </div>
+            <p style="margin:6px 0 0;font-size:15px;line-height:1.55;color:var(--text-2);text-wrap:pretty;max-width:460px">Chaque conversation telle qu’elle s’est déroulée — fils, réactions, fichiers et modifications — prête à être lue, recherchée et transmise.</p>
+          </div>
+        </aside>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}">
+    <div role="status" style="position:absolute;right:20px;bottom:{{ toastBottom }};z-index:70;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:var(--inverse);color:var(--inverse-fg);font-size:13px;box-shadow:var(--shadow-3);max-width:calc(100% - 40px)"><i class="icon-circle-check" style="font-size:15px"></i>{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;device&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;tablet&quot;,&quot;phone&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;signin&quot;,&quot;library&quot;,&quot;import&quot;,&quot;archive&quot;,&quot;exports&quot;,&quot;settings&quot;],&quot;default&quot;:&quot;library&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;embedded&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  DEF = { authEmail: '', authStep: 'email', screen: 'library', conv: 'C04PL7K2QXA', archiveTab: 'conv', importStep: 1, importPath: 'slack', signin: 'connected', method: 'qr', qrUrl: '', ws: 'acme', ssoFocus: false, chq: '', memberOnly: true, resolveNames: true, sel: null, proc: 12, procError: false, dirState: 'detected', fileError: false, fileErrorName: 'notes-reunion.json', fileName: 'acme-export-2025.zip', q: '', author: null, thread: null, exportOpen: false, exportFmt: 'html', exportState: 'idle', exEmails: false, exTheme: 'light', showEmail: false, theme: 'light', unknownDismissed: false, errBanner: false, navQ: '', langOpen: false, acctOpen: false, mobilePane: 'nav', drop: false, toast: null, peopleFilter: 'all', editing: null, editVal: '', names: null, empty: false, device: 'desktop', extraExports: null, forgotten: null };
+  state = {};
+  navSearchRef = React.createRef();
+  convSearchRef = React.createRef();
+  componentDidMount() {
+    import((window.__resources && window.__resources['loquarium-data.js']) || new URL('loquarium-data.js', document.baseURI).href).then(D => { this.D = D; this.setState({ ready: true }); });
+    if (!this.props.embedded) {
+      this._key = e => this.onKey(e);
+      this._pop = e => { const s = e.state && e.state.lq; if (s) this.setState({ ...s, exportOpen: false }); };
+      window.addEventListener('keydown', this._key);
+      window.addEventListener('popstate', this._pop);
+      try { history.replaceState({ lq: this.snap() }, ''); } catch (e) {}
+      this._iv = setInterval(() => this.tick(), 350);
+      if (!this.props.device) { this._rs = () => { const w = window.innerWidth; this.setState({ autoDevice: w < 700 ? 'phone' : w < 1100 ? 'tablet' : 'desktop' }); }; this._rs(); window.addEventListener('resize', this._rs); }
+    }
+  }
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._key); window.removeEventListener('popstate', this._pop); window.removeEventListener('resize', this._rs);
+    clearInterval(this._iv); clearTimeout(this._t); clearTimeout(this._tt); clearTimeout(this._gt);
+  }
+  g(k) { const s = this.state[k]; if (s !== undefined) return s; const p = this.props[k]; return p !== undefined && p !== null ? p : this.DEF[k]; }
+  snap() { const o = {}; ['screen', 'conv', 'archiveTab', 'importStep', 'importPath', 'mobilePane', 'thread'].forEach(k => o[k] = this.g(k)); return o; }
+  go(p) { this.setState(p, () => { if (!this.props.embedded) try { history.pushState({ lq: this.snap() }, ''); } catch (e) {} }); }
+  toast(msg) { this.setState({ toast: msg }); clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast: null }), 3200); }
+  tick() {
+    if (this.g('screen') !== 'import' || this.g('importStep') !== 4 || this.g('procError')) return;
+    const p = this.g('proc');
+    if (p < 38) this.setState({ proc: Math.min(38, p + 1) });
+    else if (!this._done) { this._done = true; this._t = setTimeout(() => { this._done = false; this.go({ importStep: 5 }); }, 900); }
+  }
+  onKey(e) {
+    const mod = e.metaKey || e.ctrlKey, k = (e.key || '').toLowerCase();
+    if (k === 'escape') {
+      if (this.g('ssoFocus')) return this.setState({ ssoFocus: false });
+      if (this.g('langOpen') || this.g('acctOpen')) return this.setState({ langOpen: false, acctOpen: false });
+      if (this.g('editing')) return this.setState({ editing: null });
+      if (this.g('exportOpen')) return this.setState({ exportOpen: false });
+      if (this.g('thread')) return this.setState({ thread: null });
+    }
+    if (mod && k === 'k') { e.preventDefault(); if (this.g('screen') !== 'archive') this.go({ screen: 'archive', mobilePane: 'nav' }); setTimeout(() => this.navSearchRef.current && this.navSearchRef.current.focus(), 40); }
+    if (mod && k === 'f' && this.g('screen') === 'archive') { e.preventDefault(); this.setState({ archiveTab: 'conv', mobilePane: 'conv' }); setTimeout(() => this.convSearchRef.current && this.convSearchRef.current.focus(), 40); }
+  }
+  generate() {
+    this.setState({ exportState: 'generating' });
+    clearTimeout(this._gt);
+    this._gt = setTimeout(() => {
+      const fmt = this.g('exportFmt') === 'json' ? 'JSON' : 'HTML';
+      const c = this.D.CONVS.find(x => x.id === this.g('conv'));
+      const file = `acme_${c.name}_2026-02-10_2026-02-12.${fmt.toLowerCase()}`;
+      this.setState({ exportState: 'done', exFileName: file, extraExports: [{ file, fmt, scope: (c.kind === 'public' || c.kind === 'private' ? '#' : '') + c.name, archive: 'acme', date: 'à l’instant', size: fmt === 'JSON' ? '96 Ko' : '1,2 Mo' }, ...(this.g('extraExports') || [])] });
+      this.toast('Export téléchargé · ' + file);
+    }, 1600);
+  }
+  renderVals() {
+    const D = this.D, g = k => this.g(k);
+    const set = p => () => this.setState(p);
+    const go = p => () => this.go(p);
+    const theme = g('theme'), device = this.props.device || this.state.autoDevice || 'desktop';
+    const isPhone = device === 'phone', isTablet = device === 'tablet', isDesktop = !isPhone && !isTablet;
+    const screen = g('screen');
+    const v = {
+      theme, isPhone, notPhone: !isPhone, rootH: this.props.embedded ? '100%' : '100vh', rootDir: isPhone ? 'column' : 'row',
+      loading: !D, pagePad: isPhone ? '20px 16px 28px' : '32px 40px 48px',
+      closeMenus: set({ langOpen: false, acctOpen: false }), toggleAcct: () => this.setState({ acctOpen: !g('acctOpen'), langOpen: false }), acctOpen: g('acctOpen'),
+      goSettings: go({ screen: 'settings', acctOpen: false }), showRail: !isPhone,
+      navSearchRef: this.navSearchRef, convSearchRef: this.convSearchRef,
+      drop: g('drop'), toast: g('toast'), hasToast: !!g('toast'), toastBottom: isPhone ? '76px' : '20px',
+      onDragEnter: e => { e.preventDefault(); if (e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files')) this.setState({ drop: true }); },
+      onDragOver: e => e.preventDefault(),
+      onDragLeave: e => { if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) this.setState({ drop: false }); },
+      onDrop: e => {
+        e.preventDefault();
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        const n = f ? f.name : 'export.zip';
+        if (/\.(zip|json)$/i.test(n)) this.go({ drop: false, screen: 'import', importPath: 'file', importStep: 2, fileName: n, fileError: false, dirState: /\.zip$/i.test(n) ? 'detected' : 'none' });
+        else this.go({ drop: false, screen: 'import', importPath: 'slack', importStep: 1, fileError: true, fileErrorName: n });
+      },
+    };
+    if (!D) return v;
+    const names = g('names') || {};
+    const inArchive = screen === 'archive';
+    const navAct = k => (k === 'library' ? (screen === 'library' || inArchive) : screen === k);
+    const navDef = [{ k: 'library', label: 'Bibliothèque', icon: 'icon-library' }, { k: 'import', label: 'Importer', icon: 'icon-import' }, { k: 'exports', label: 'Exports', icon: 'icon-file-output' }];
+    const navGo = k => go(k === 'import' ? { screen: 'import', importStep: 1, importPath: 'slack', exportOpen: false } : { screen: k, exportOpen: false });
+    v.navItems = navDef.map(n => ({ label: n.label, icon: n.icon, go: navGo(n.k), bg: navAct(n.k) ? 'var(--accent-soft)' : 'transparent', fg: navAct(n.k) ? 'var(--accent-text)' : 'var(--text-3)' }));
+    v.settingsItem = { go: go({ screen: 'settings' }), bg: screen === 'settings' ? 'var(--accent-soft)' : 'transparent', fg: screen === 'settings' ? 'var(--accent-text)' : 'var(--text-3)' };
+    v.showBottomNav = isPhone && !(inArchive && g('mobilePane') === 'conv');
+    v.bottomItems = [...navDef, { k: 'settings', label: 'Réglages', icon: 'icon-settings' }].map(n => ({ label: n.label, icon: n.icon, go: navGo(n.k), fg: navAct(n.k) ? 'var(--accent-text)' : 'var(--text-3)' }));
+    Object.assign(v, { isLibrary: screen === 'library', isImport: screen === 'import', isArchive: inArchive, isExports: screen === 'exports', isSettings: screen === 'settings' });
+
+    const conv = g('conv'), C = D.CONVS.find(c => c.id === conv) || D.CONVS[1];
+    const cLabel = c => (c.kind === 'public' || c.kind === 'private' ? '#' : '') + c.name;
+    const archiveTab = g('archiveTab');
+    const mobilePane = g('mobilePane');
+    // breadcrumbs + primary action
+    let crumbs = [];
+    const stepNames = { 1: 'Source', 2: g('importPath') === 'file' ? 'Annuaire' : 'Connexion', 3: 'Conversations', 4: 'Import', 5: 'Terminé' };
+    if (screen === 'library') crumbs = [{ label: 'Bibliothèque' }];
+    if (screen === 'import') crumbs = [{ label: 'Importer', go: go({ importStep: 1 }) }, { label: stepNames[g('importStep')] }];
+    if (screen === 'exports') crumbs = [{ label: 'Exports' }];
+    if (screen === 'settings') crumbs = [{ label: 'Réglages' }];
+    if (inArchive) {
+      crumbs = [{ label: 'Bibliothèque', go: go({ screen: 'library', exportOpen: false }) }, { label: 'acme', go: go({ archiveTab: 'conv', mobilePane: 'nav' }) }];
+      if (!isPhone || mobilePane === 'conv' || archiveTab === 'people') crumbs.push({ label: archiveTab === 'people' ? 'Personnes' : cLabel(C) });
+    }
+    if (isPhone && crumbs.length > 1) { v.showBack = true; v.back = crumbs[crumbs.length - 2].go; crumbs = [crumbs[crumbs.length - 1]]; }
+    v.crumbs = crumbs.map((c, i) => ({ label: c.label, go: c.go, sep: i > 0, last: i === crumbs.length - 1, link: i < crumbs.length - 1 }));
+    if (screen === 'library' || screen === 'exports') { v.hasPrimary = true; v.primary = { label: 'Importer', icon: 'icon-import', go: navGo('import') }; }
+    if (inArchive) { v.hasPrimary = true; v.primary = { label: 'Exporter', icon: 'icon-file-output', go: () => this.setState({ exportOpen: true, exportState: 'idle' }) }; }
+
+    // library
+    const empty = g('empty');
+    Object.assign(v, {
+      libEmpty: empty, libFilled: !empty, libMeta: empty ? 'Rien n’est encore stocké sur cet appareil' : '3 archives · 312 Mo, stockés sur cet appareil',
+      libCols: isPhone ? 'minmax(0,1fr)' : 'minmax(0,2.4fr) minmax(0,1.5fr) 70px 90px 80px minmax(0,1fr)',
+      archives: D.ARCHIVES.map(a => ({ ...a, open: go({ screen: 'archive', archiveTab: 'conv', mobilePane: 'nav' }) })),
+      recents: D.RECENTS.map(r => ({ ...r, open: go({ screen: 'archive', conv: r.conv, archiveTab: 'conv', mobilePane: 'conv', thread: null, author: null, q: '' }) })),
+      goImportSlack: go({ screen: 'import', importStep: 2, importPath: 'slack' }),
+      openFileFlow: go({ screen: 'import', importPath: 'file', importStep: 2, fileName: 'acme-export-2025.zip', dirState: 'detected' }),
+    });
+
+    // import
+    const path = g('importPath'), step = g('importStep');
+    const seq = path === 'file' ? [[1, 'Source', g('fileName')], [2, 'Annuaire', 'optionnel'], [4, 'Import', ''], [5, 'Terminé', '']] : [[1, 'Source', 'Slack'], [2, 'Connexion', g('ws') + '.slack.com'], [3, 'Conversations', ''], [4, 'Import', ''], [5, 'Terminé', '']];
+    v.steps = seq.map(([n, label, sub], i) => {
+      const done = n < step, cur = n === step;
+      return { n: i + 1, label, sub: done || cur ? sub : '', isDone: done, notDone: !done, cBg: done ? 'var(--accent)' : 'var(--surface)', cFg: done ? 'var(--accent-fg)' : cur ? 'var(--accent-text)' : 'var(--text-3)', cBd: done || cur ? 'var(--accent)' : 'var(--border-strong)', fw: cur ? 600 : 500, lc: cur || done ? 'var(--text)' : 'var(--text-3)' };
+    });
+    v.showStepper = !isPhone; v.pathLabel = path === 'file' ? 'Ouvrir un fichier d’export' : 'Importer depuis Slack';
+    Object.assign(v, { step1: step === 1, step2slack: step === 2 && path === 'slack', step2file: step === 2 && path === 'file', step3: step === 3, step4: step === 4, step5: step === 5 });
+    Object.assign(v, { fileError: g('fileError'), fileErrorName: g('fileErrorName'), dismissFileError: set({ fileError: false }), startSlack: go({ importStep: 2, importPath: 'slack' }) });
+    // sign-in
+    const signin = g('signin'), forgotten = g('forgotten') || {};
+    const conns = [{ id: 'acme', name: 'acme', initial: 'A', domain: 'acme.slack.com' }, { id: 'nw', name: 'Northwind Avocats', initial: 'N', domain: 'northwind-avocats.slack.com' }].filter(w => !forgotten[w.id]);
+    const hasConn = conns.length > 0 && signin !== 'sso' && signin !== 'sso-opening';
+    const showForm = signin === 'form' || (signin === 'connected' && conns.length === 0);
+    const method = g('method');
+    const qr = g('qrUrl'), qrOk = /^https?:\/\/\S+\.(png|jpg|svg)/i.test(qr) || qr.length > 16;
+    const segOn = 'var(--surface)', segSh = 'var(--shadow-1)';
+    Object.assign(v, {
+      hasConnected: hasConn, connected: conns.map(w => ({ ...w, open: go({ importStep: 3 }), forget: () => { this.setState({ forgotten: { ...forgotten, [w.id]: true } }); this.toast('Espace « ' + w.name + ' » oublié sur cet appareil'); } })),
+      showAddAnotherBtn: hasConn && !showForm, addAnother: set({ signin: 'form' }), showSigninForm: showForm,
+      ws: g('ws'), onWs: e => this.setState({ ws: e.target.value.replace(/\.slack\.com.*$/, '') }),
+      isQr: method === 'qr', isSlackM: method === 'slack', setQr: set({ method: 'qr' }), setSlackM: set({ method: 'slack' }),
+      segQrBg: method === 'qr' ? segOn : 'transparent', segQrSh: method === 'qr' ? segSh : 'none', segSlBg: method === 'slack' ? segOn : 'transparent', segSlSh: method === 'slack' ? segSh : 'none',
+      formCols: isPhone ? 'minmax(0,1fr)' : 'minmax(0,1.2fr) minmax(0,1fr)',
+      qrUrl: qr, onQr: e => this.setState({ qrUrl: e.target.value }), qrValid: qrOk, qrDisabled: !qrOk, qrOpacity: qrOk ? 1 : .45, qrBorder: qrOk ? 'var(--success)' : 'var(--border-strong)',
+      qrContinue: go({ importStep: 3 }),
+      help1: method === 'qr' ? 'Sur un appareil déjà connecté, ouvrez le code QR de connexion de l’espace.' : 'Saisissez le sous-domaine de l’espace, puis ouvrez la connexion.',
+      help2: method === 'qr' ? 'Copiez l’adresse de l’image du code QR.' : 'Connectez-vous comme d’habitude, SSO compris.',
+      help3: method === 'qr' ? 'Collez-la ici avec le nom de l’espace.' : 'Vous revenez ici automatiquement, prêt à choisir les canaux.',
+      openSso: () => { this.setState({ signin: 'sso-opening' }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ signin: 'sso' }), 1400); },
+      isSso: signin === 'sso' || signin === 'sso-opening', ssoOpening: signin === 'sso-opening', ssoLive: signin === 'sso',
+      ssoFocus: g('ssoFocus'), ssoNoFocus: !g('ssoFocus'), focusSso: set({ ssoFocus: true }), blurSso: set({ ssoFocus: false }),
+      ssoRing: g('ssoFocus') ? '0 0 0 3px var(--focus)' : 'none',
+      ssoUrl: signin === 'sso' ? 'https://login.acme-idp.fr/saml/sso?app=slack' : 'about:blank',
+      ssoFps: signin === 'sso' ? '8 img/s · 42 ms' : '—',
+      ssoSubmit: e => { e.stopPropagation(); this.go({ importStep: 3, signin: 'connected', ssoFocus: false }); },
+      cancelSso: set({ signin: 'form', ssoFocus: false }),
+    });
+    // file path
+    const ds = g('dirState');
+    Object.assign(v, {
+      fileName: g('fileName'), dirDetected: ds === 'detected', dirAdded: ds === 'added', dirSkipped: ds === 'skipped', dirNone: ds === 'none', dirCanSkip: ds === 'none',
+      dirReplace: set({ dirState: 'added' }), dirRemove: set({ dirState: 'none' }), dirAdd: set({ dirState: 'added' }), dirSkip: set({ dirState: 'skipped' }),
+      fileContinue: go({ importStep: 4, proc: 0 }),
+    });
+    // channel picker
+    const cq = g('chq'), cql = cq.trim().toLowerCase();
+    const idOf = s => { const m = s.match(/archives\/([a-z0-9]+)/i); return (m ? m[1] : s.replace(/^#/, '')).toLowerCase(); };
+    const needle = idOf(cql), mo = g('memberOnly'), rn = g('resolveNames');
+    const sel = g('sel') || { C04PL7K2QXA: true, C06INC12M03: true };
+    const pool = D.CATALOG.filter(c => !mo || c.member);
+    const shown = pool.filter(c => !needle || c.name.toLowerCase().includes(needle) || c.id.toLowerCase().includes(needle));
+    const icon = k => ({ public: 'icon-hash', private: 'icon-lock', dm: 'icon-user', group: 'icon-users' })[k];
+    const selN = Object.values(sel).filter(Boolean).length;
+    const cbOn = on => ({ bg: on ? 'var(--accent)' : 'var(--surface)', bd: on ? 'var(--accent)' : 'var(--border-strong)' });
+    Object.assign(v, {
+      chq: cq, onChq: e => this.setState({ chq: e.target.value }), clearChq: set({ chq: '' }), chqEmpty: !cql, chqTyping: !!cql,
+      ex1: set({ chq: '#general' }), ex2: set({ chq: 'C0AE23W6W0J' }),
+      chCount: `${shown.length} sur ${mo ? 31 : '1 512'} canaux`, capNotice: !mo && !cql,
+      memberOnly: mo, toggleMember: set({ memberOnly: !mo }), resolveNames: rn, toggleResolve: set({ resolveNames: !rn }),
+      cbMemberBg: cbOn(mo).bg, cbMemberBd: cbOn(mo).bd, cbResolveBg: cbOn(rn).bg, cbResolveBd: cbOn(rn).bd,
+      chRows: shown.map(c => {
+        const on = !!sel[c.id];
+        return { name: c.kind === 'dm' ? 'Message direct · ' + (rn && !c.unresolved ? c.name : c.uid) : c.name, id: c.id, icon: icon(c.kind), archived: !!c.archived, hasMeta: !c.archived && !!c.members, meta: c.members ? `${c.members} membres` : '', selected: on, bg: on ? 'var(--accent-soft)' : 'transparent', cbBg: cbOn(on).bg, cbBd: cbOn(on).bd, toggle: () => this.setState({ sel: { ...sel, [c.id]: !on } }) };
+      }),
+      noCh: shown.length === 0, selLabel: selN ? `${selN} conversation${selN > 1 ? 's' : ''} sélectionnée${selN > 1 ? 's' : ''}` : 'Aucune conversation sélectionnée',
+      importBtn: `Importer ${selN || ''}`.trim(), startImport: go({ importStep: 4, proc: 0, procError: false }),
+    });
+    // processing
+    const p = g('proc'), err = g('procError');
+    const lines = path === 'file'
+      ? [{ t: `Lecture de ${g('fileName')}`, r: '142 Mo', s: 'done' }, { t: '12 canaux analysés', r: '', s: 'done' }, { t: `${Math.round(p / 38 * 18402).toLocaleString('fr-FR')} / 18 402 messages indexés`, r: '', s: p >= 38 ? 'done' : 'run' }, { t: '1 284 personnes chargées', r: 'users.json', s: p >= 38 ? 'done' : 'wait' }]
+      : [{ t: '1 200 messages récupérés', r: '#product-launch', s: 'done' }, { t: '38 fils à récupérer…', r: '', s: 'done' }, { t: `${p}/38 fils récupérés`, r: '', s: err ? 'wait' : p >= 38 ? 'done' : 'run' }, { t: p >= 38 ? '24/24 membres résolus' : '24 membres à résoudre', r: '', s: p >= 38 ? 'done' : 'wait' }];
+    const pct = err ? 34 : Math.round(20 + p / 38 * 80);
+    Object.assign(v, {
+      procLines: lines.map(l => ({ text: l.t, right: l.r, done: l.s === 'done', running: l.s === 'run', pending: l.s === 'wait', color: l.s === 'wait' ? 'var(--text-3)' : 'var(--text)' })),
+      procPct: pct + '%', procPctNum: pct, procBarColor: err ? 'var(--danger)' : 'var(--accent)', procError: err,
+      procSub: path === 'file' ? g('fileName') + ' · lecture locale, rien n’est envoyé' : '#product-launch, #incident-2026-03-12 · acme.slack.com',
+      cancelImport: go({ importStep: path === 'file' ? 2 : 3 }), retryImport: set({ procError: false }), skipErr: set({ procError: false, proc: 38 }),
+      doneStats: [{ label: 'Conversations', value: path === 'file' ? '12' : '2' }, { label: 'Messages', value: path === 'file' ? '18 402' : '1 205' }, { label: 'Période', value: path === 'file' ? '2 janv. → 31 déc. 2025' : '10 févr. → 13 mars 2026' }, { label: 'Personnes', value: path === 'file' ? '1 284' : '24' }, { label: 'Fils', value: '38' }, { label: 'Stockage', value: 'Sur cet appareil' }],
+      openArchive: go({ screen: 'archive', archiveTab: 'conv', mobilePane: 'nav' }), importMore: go({ importStep: 1 }),
+    });
+
+    // archive navigator
+    const navQ = g('navQ'), nn = idOf(navQ.trim().toLowerCase());
+    const match = c => !nn || c.name.toLowerCase().includes(nn) || c.id.toLowerCase().includes(nn);
+    const mkItem = c => {
+      const act = inArchive && c.id === conv && archiveTab === 'conv';
+      return { name: c.name, icon: icon(c.kind), archived: !!c.archived, current: act ? 'page' : 'false', bg: act ? 'var(--accent-soft)' : 'transparent', hbg: act ? 'var(--accent-soft)' : 'var(--surface-2)', fg: act ? 'var(--accent-text)' : 'var(--text-2)', font: act ? '600 13px var(--font-app)' : '400 13px var(--font-app)', open: go({ conv: c.id, archiveTab: 'conv', thread: null, author: null, q: '', mobilePane: 'conv' }) };
+    };
+    const secs = [['Canaux', c => c.kind === 'public' || c.kind === 'private'], ['Messages directs', c => c.kind === 'dm'], ['Groupes', c => c.kind === 'group']]
+      .map(([title, f]) => { const items = D.CONVS.filter(f).filter(match).map(mkItem); return { title, n: items.length, items }; }).filter(s => s.items.length);
+    const author = g('author');
+    const R = D.buildRows(conv, { q: g('q'), author, names, showEmail: g('showEmail'), onThread: tid => this.go({ thread: tid }) });
+    const cnt = D.counts(conv);
+    const unresolvedIds = Object.keys(D.PEOPLE).filter(id => D.PEOPLE[id].unresolved && !names[id]);
+    Object.assign(v, {
+      navVisible: !isPhone || mobilePane === 'nav', convVisible: !isPhone || mobilePane === 'conv' || archiveTab === 'people',
+      navW: isPhone ? '100%' : isTablet ? '244px' : '272px',
+      navQ, onNavQ: e => this.setState({ navQ: e.target.value }), clearNavQ: set({ navQ: '' }), navQFilled: !!navQ, navQEmpty: !navQ && !isPhone,
+      sections: secs, navEmpty: secs.length === 0,
+      isConvTab: archiveTab === 'conv', isPeopleTab: archiveTab === 'people',
+      setTabConv: go({ archiveTab: 'conv' }), setTabPeople: go({ archiveTab: 'people', mobilePane: 'conv' }),
+      tabConvBg: archiveTab === 'conv' ? segOn : 'transparent', tabConvSh: archiveTab === 'conv' ? segSh : 'none', tabPeopleBg: archiveTab === 'people' ? segOn : 'transparent', tabPeopleSh: archiveTab === 'people' ? segSh : 'none',
+      unresolvedCount: unresolvedIds.length, hasUnresolved: unresolvedIds.length > 0,
+      hasAuthor: !!author, clearAuthor: set({ author: null }),
+      navPeople: R.participants.map(id => {
+        const pp = D.person(id, names), on = author === id;
+        return { name: pp.name, initials: pp.initials, color: pp.color, count: cnt[id] || 0, active: on, unresolved: pp.unresolved, ff: pp.unresolved ? 'var(--font-mono)' : 'var(--font-app)', tip: on ? 'Afficher tous les messages' : 'Afficher uniquement les messages de ' + pp.name, bg: on ? 'var(--accent-soft)' : 'transparent', fg: on ? 'var(--accent-text)' : 'var(--text-2)', font: on ? '600 13px var(--font-app)' : '400 13px var(--font-app)', toggle: () => this.setState({ author: on ? null : id, mobilePane: 'conv' }), fix: go({ archiveTab: 'people', editing: id, editVal: '', mobilePane: 'conv' }) };
+      }),
+      backToNav: go({ mobilePane: 'nav' }),
+    });
+    // conversation
+    const q = g('q'), filt = R.filtering;
+    Object.assign(v, {
+      convIcon: icon(C.kind), convName: C.name, countLabel: filt ? `${R.shown} / ${R.total} messages` : `${R.total} messages`,
+      countBg: filt ? 'var(--accent-soft)' : 'var(--surface-2)', countFg: filt ? 'var(--accent-text)' : 'var(--text-2)',
+      q, onQ: e => this.setState({ q: e.target.value }), clearQ: set({ q: '' }), qFilled: !!q, qEmpty: !q && !isPhone,
+      showEmail: g('showEmail'), toggleEmail: set({ showEmail: !g('showEmail') }), emailTip: g('showEmail') ? 'Masquer les e-mails' : 'Afficher les e-mails',
+      emailBg: g('showEmail') ? 'var(--accent-soft)' : 'transparent', emailFg: g('showEmail') ? 'var(--accent-text)' : 'var(--text-2)',
+      toggleTheme: set({ theme: theme === 'dark' ? 'light' : 'dark' }), themeIcon: theme === 'dark' ? 'icon-sun' : 'icon-moon', themeTip: theme === 'dark' ? 'Thème clair' : 'Thème sombre',
+      langOpen: g('langOpen'), toggleLang: () => this.setState({ langOpen: !g('langOpen'), acctOpen: false }),
+      langs: [['Langue du navigateur', 'auto'], ['Français', 'fr'], ['English', 'en'], ['Español', 'es'], ['中文（简体）', 'zh'], ['Русский', 'ru']].map(([label, code]) => ({ label, code, sel: code === 'fr', check: code === 'fr' ? '✓' : '' })),
+      showErrBanner: g('errBanner'), dismissErr: set({ errBanner: false }),
+      showUnknownBanner: !g('unknownDismissed') && unresolvedIds.length > 0, dismissUnknown: set({ unknownDismissed: true }),
+      unknownText: `${unresolvedIds.length} identifiant${unresolvedIds.length > 1 ? 's' : ''} absent${unresolvedIds.length > 1 ? 's' : ''} de l’annuaire de cette archive.`,
+      goPeople: go({ archiveTab: 'people' }),
+      rows: R.rows, noResults: filt && R.shown === 0, convEmpty: !filt && R.total === 0,
+      authorSuffix: author ? ' · ' + D.person(author, names).name : '',
+      clearAll: set({ q: '', author: null }),
+      rangeLine: R.first ? `${D.DAYS[R.first.day]}, ${R.first.ts} → ${D.DAYS[R.last.day]}, ${R.last.ts} · importé de Slack le 13 mars 2026` : 'Aucun message',
+    });
+    const tid = g('thread');
+    const th = tid && inArchive && archiveTab === 'conv' ? D.threadView(tid, { q, names, showEmail: g('showEmail') }) : null;
+    Object.assign(v, { th: th || { replies: [] }, threadDocked: !!th && isDesktop, threadOverlay: !!th && !isDesktop, threadW: isPhone ? '100%' : '420px', closeThread: go({ thread: null }) });
+    // people tab
+    const pf = g('peopleFilter'), editing = g('editing');
+    const allCounts = {}; Object.values(D.MESSAGES).forEach(ms => ms.forEach(m => allCounts[m.u] = (allCounts[m.u] || 0) + 1));
+    const ids = Object.keys(D.PEOPLE);
+    const saveName = (id, name) => { if (!name || !name.trim()) return; this.setState({ names: { ...names, [id]: name.trim() }, editing: null, editVal: '' }); this.toast('Nom enregistré sur cet appareil · utilisé dans les exports'); };
+    v.pfChips = [['all', `Tous · ${ids.length}`], ['todo', `À nommer · ${unresolvedIds.length}`], ['ok', 'Résolus']].map(([k, label]) => ({ label, on: pf === k, go: set({ peopleFilter: k }), bg: pf === k ? 'var(--accent-soft)' : 'var(--surface)', bd: pf === k ? 'var(--accent-line)' : 'var(--border)', fg: pf === k ? 'var(--accent-text)' : 'var(--text-2)' }));
+    v.peopleRows = ids.filter(id => { const u = D.PEOPLE[id].unresolved && !names[id]; return pf === 'all' || (pf === 'todo' ? u : !u); }).map(id => {
+      const pp = D.person(id, names), ed = editing === id;
+      const status = pp.unresolved ? 'Non résolu' : pp.fixed ? 'Nommé à la main' : pp.bot ? 'Application' : 'Résolu';
+      return { id, initials: pp.initials, color: pp.color, email: pp.email || '—', count: allCounts[id] || 0, label: pp.unresolved ? 'Sans nom' : pp.name, ff: 'var(--font-app)', nameColor: pp.unresolved ? 'var(--text-3)' : 'var(--text)', editing: ed, notEditing: !ed, canName: pp.unresolved, fixed: pp.fixed, status, sBg: pp.unresolved ? 'var(--warning-soft)' : pp.fixed ? 'var(--accent-soft)' : 'var(--success-soft)', sFg: pp.unresolved ? 'var(--warning)' : pp.fixed ? 'var(--accent-text)' : 'var(--success)', startEdit: set({ editing: id, editVal: names[id] || '' }), suggestions: (D.SUGGEST[id] || []).map(s => ({ ...s, pick: () => saveName(id, s.name) })) };
+    });
+    Object.assign(v, { peopleCols: isPhone ? 'minmax(0,1fr) auto' : 'minmax(0,1.6fr) 130px minmax(0,1.3fr) 70px 110px', editVal: g('editVal'), onEditVal: e => this.setState({ editVal: e.target.value }), onEditKey: e => { if (e.key === 'Enter') saveName(editing, g('editVal')); }, cancelEdit: set({ editing: null }), saveEdit: () => saveName(editing, g('editVal')) });
+    // export sheet
+    const fmt = g('exportFmt'), es = g('exportState');
+    const fdefs = [['html', 'Page HTML autonome', 'Un seul fichier, lisible hors ligne d’un double-clic, avec recherche et fils.', 'icon-file-code', false], ['json', 'JSON', 'Données brutes, rechargeables dans Loquarium.', 'icon-file-json', false], ['pdf', 'PDF', 'Mise en page paginée, prête à verser au dossier.', 'icon-file-text', true], ['pack', 'Dossier de preuve', 'PDF + HTML + JSON + manifeste d’intégrité (empreintes SHA-256).', 'icon-shield-check', true], ['redact', 'Caviardage', 'Masquer noms, e-mails et téléphones avant l’export.', 'icon-eye-off', true]];
+    const cur = fdefs.find(f => f[0] === fmt) || fdefs[0];
+    const exE = g('exEmails'), exT = g('exTheme');
+    Object.assign(v, {
+      exportOpen: inArchive && g('exportOpen'), closeExport: set({ exportOpen: false }), sheetW: isPhone ? '100%' : '460px',
+      formats: fdefs.map(([k, name, desc, ic, pro]) => ({ name, desc, icon: ic, pro, free: !pro, selected: k === fmt, pick: set({ exportFmt: k, exportState: 'idle' }), bd: k === fmt ? 'var(--accent)' : 'var(--border)', hbd: k === fmt ? 'var(--accent)' : 'var(--border-strong)', bg: k === fmt ? 'var(--accent-soft)' : 'var(--surface)', ic: k === fmt ? 'var(--accent-text)' : 'var(--text-3)' })),
+      fmtFree: !cur[4], fmtPro: cur[4], proName: cur[1], genOpacity: cur[4] ? .45 : 1, genLabel: fmt === 'json' ? 'Exporter en JSON' : 'Générer la page HTML',
+      exEmails: exE, toggleExEmails: set({ exEmails: !exE }), swBg: exE ? 'var(--accent)' : 'var(--border-strong)', swLeft: exE ? '14px' : '2px',
+      exLight: set({ exTheme: 'light' }), exDark: set({ exTheme: 'dark' }), exLightBg: exT === 'light' ? segOn : 'transparent', exLightSh: exT === 'light' ? segSh : 'none', exDarkBg: exT === 'dark' ? segOn : 'transparent', exDarkSh: exT === 'dark' ? segSh : 'none',
+      exSummary: [{ k: 'Contenu', v: `${R.total} messages · 1 fil · ${R.participants.length} participants`, ff: 'var(--font-app)' }, { k: 'Période', v: R.first ? `${R.first.day} → ${R.last.day}` : '—', ff: 'var(--font-mono)' }, { k: 'Fichier', v: `acme_${C.name}_2026-02-10_2026-02-12.${fmt === 'json' ? 'json' : 'html'}`, ff: 'var(--font-mono)' }, { k: 'Taille', v: fmt === 'json' ? '≈ 96 Ko' : '≈ 1,2 Mo · s’ouvre hors ligne', ff: 'var(--font-app)' }, { k: 'E-mails', v: exE ? 'Inclus' : 'Masqués', ff: 'var(--font-app)' }],
+      exIdle: es === 'idle', exGen: es === 'generating', exDone: es === 'done', exErr: es === 'error',
+      generate: () => this.generate(), cancelGen: () => { clearTimeout(this._gt); this.setState({ exportState: 'idle' }); },
+      exFile: g('exFileName') || `acme_${C.name}_2026-02-10_2026-02-12.html`,
+      goExports: go({ screen: 'exports', exportOpen: false }),
+      seePro: () => this.toast('Écran d’offre Pro : prochaine passe'), backToHtml: set({ exportFmt: 'html' }),
+    });
+    // sign-in (unauthenticated)
+    const authEmail = g('authEmail'), authStep = g('authStep');
+    Object.assign(v, {
+      isSignin: screen === 'signin', authEmailStep: authStep !== 'sent', authSentStep: authStep === 'sent',
+      authPad: isPhone ? '20px 20px 24px' : '28px 40px', authAside: isDesktop,
+      authEmail, onAuthEmail: e => this.setState({ authEmail: e.target.value }), authEmailShown: authEmail || 'camille@cabinet-laurent.fr',
+      authSubmit: e => { e.preventDefault(); this.setState({ authStep: 'sent' }); },
+      authResend: () => this.toast('Nouveau lien envoyé'), authBack: set({ authStep: 'email' }),
+      authOpenLink: go({ screen: 'library', authStep: 'email' }),
+      logout: go({ screen: 'signin', authStep: 'email', acctOpen: false }),
+      authPreview: ['m1', 'm3', 'm4'].map((id, i) => ({ msg: D.enrich(D.MESSAGES.C04PL7K2QXA.find(m => m.id === id), false, '', { names }) })),
+    });
+    // exports
+    v.exportRows = [...(g('extraExports') || []), ...D.EXPORTS].map(e => ({ ...e, icon: e.fmt === 'JSON' ? 'icon-file-json' : 'icon-file-code' }));
+    v.exportCols = isPhone ? 'minmax(0,1fr)' : 'minmax(0,2.4fr) 70px minmax(0,1.2fr) minmax(0,1.2fr) 150px 70px';
+    return v;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,13 +1,8 @@
 import * as React from "react";
-import { BookOpen } from "lucide-react";
-
 import { useI18n } from "@/lib/i18n/react";
 import { cn } from "@/lib/utils";
 
 const GITHUB_URL = "https://github.com/amine-abdelli";
-/** Section « Preparing the sources » du README. */
-const README_URL =
-  "https://github.com/amine-abdelli/slack-json-viewer#preparing-the-sources";
 
 /** GitHub mark — lucide ne fournit plus les logos de marque. */
 function GithubMark({ className }: { className?: string }) {
@@ -39,26 +34,6 @@ export function GithubLink({ className }: { className?: string }) {
     >
       <GithubMark className="size-3.5" />
       <span>amine-abdelli</span>
-    </a>
-  );
-}
-
-/** Lien discret vers le README : comment archiver une conversation Slack. */
-export function ReadmeLink({ className }: { className?: string }) {
-  const { m } = useI18n();
-  return (
-    <a
-      href={README_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={m.links.readmeTitle}
-      className={cn(
-        "inline-flex items-center gap-1.5 transition-opacity hover:opacity-100",
-        className
-      )}
-    >
-      <BookOpen className="size-3.5" />
-      <span>{m.links.readme}</span>
     </a>
   );
 }
