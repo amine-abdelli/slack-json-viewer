@@ -9,7 +9,7 @@ import * as core from "./api-core";
 import { wordApiText } from "./api-text";
 import { runJob } from "./bridge-client";
 import type { ChannelSummary } from "./bridge-types";
-import { extensionCall, type ExtensionTeam } from "./extension-client";
+import { extensionCall, extensionFile, type ExtensionTeam } from "./extension-client";
 
 type Log = (line: string) => void;
 
@@ -26,6 +26,46 @@ export interface SlackSource {
     known?: Record<string, string>,
   ): Promise<unknown>;
   users(ids: string[], onLog: Log, signal: AbortSignal): Promise<unknown[]>;
+  /** One image attached to a message (`screenshotUrl`), or null when Slack will not serve it. */
+  image(url: string, signal: AbortSignal): Promise<Blob | null>;
+}
+
+interface FileAnswer {
+  status: number;
+  retryAfter?: number;
+  blob?: Blob;
+}
+
+const IMAGE_RETRIES = 4;
+
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(new Error("aborted"));
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(new Error("aborted"));
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
+ * Downloads with Slack's pace: a 429 waits the delay it gives. Anything else
+ * that is not an image — gone, forbidden, too big — is null: the message keeps
+ * its card and link, and the import goes on.
+ */
+async function downloadImage(get: () => Promise<FileAnswer>, signal: AbortSignal): Promise<Blob | null> {
+  for (let attempt = 0; attempt <= IMAGE_RETRIES; attempt++) {
+    const res = await get();
+    if (res.status === 200 && res.blob) return res.blob;
+    if (res.status !== 429 || attempt === IMAGE_RETRIES) return null;
+    await wait(Math.min((res.retryAfter || 2) * 1000, 30_000), signal);
+  }
+  return null;
 }
 
 /** Through `/api/slack/run`, with the credentials stored for this session. */
@@ -39,6 +79,20 @@ export function bridgeSource(workspace: string): SlackSource {
       runJob<unknown>({ action: "dump", workspace, channel, known }, onLog, signal),
     users: (userIds, onLog, signal) =>
       runJob<unknown[]>({ action: "resolve-users", workspace, userIds }, onLog, signal),
+    image: (url, signal) =>
+      downloadImage(async () => {
+        const res = await fetch("/api/slack/file", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ workspace, url }),
+          signal,
+        });
+        return {
+          status: res.status,
+          retryAfter: Number(res.headers.get("retry-after")) || undefined,
+          blob: res.ok ? await res.blob() : undefined,
+        };
+      }, signal),
   };
 }
 
@@ -63,5 +117,6 @@ export function extensionSource(team: ExtensionTeam, i18n: I18n): SlackSource {
       onLog(i18n.p(server.resolving, ids.length));
       return core.usersInfo(ctx, ids, onLog, signal);
     },
+    image: (url, signal) => downloadImage(() => extensionFile(team.id, url), signal),
   };
 }

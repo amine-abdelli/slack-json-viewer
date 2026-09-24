@@ -51,6 +51,7 @@ actually want a second workspace.
 | --- | --- | --- |
 | Your conversations | `users.conversations` | `conversations.list` walks every channel in the workspace — thousands, on a large one |
 | A conversation | `conversations.history` + `conversations.replies` | history returns thread roots only; each thread costs one more call |
+| Its members | `conversations.members` | skipped above 500 members: a crowd, not a list worth showing |
 | Participants' names | `users.info` on the IDs in the dump | `users.list` walks tens of thousands of accounts for the few dozen involved |
 
 The channel list defaults to **the conversations you are a member of**; untick
@@ -66,6 +67,12 @@ Names are resolved *after* the dump: the panel collects the IDs actually
 present — message authors, thread repliers, reaction voters, `<@…>` mentions,
 bots — and resolves exactly those, eight requests in flight. Unknown or
 deactivated accounts are skipped rather than failing the batch.
+
+Only IDs never seen before are asked for: people already in the directory —
+deactivated accounts included, since they no longer change — are skipped, and
+so are the IDs Slack answered `user_not_found` for (bots, people from another
+organisation), remembered per workspace in the browser for 30 days. A second
+import of the same channels usually makes no `users.info` call at all.
 
 Slack's rate limiting is honoured: the first `429` pauses every request of that
 kind for the delay Slack asks for — announced once, "resuming in N s" — and
@@ -112,6 +119,7 @@ npm run dev        # or: npm run build && npm start
 | `SLACK_VIEWER_SESSION_TTL_HOURS` | `12` | how long a token sign-in lasts |
 | `NEXT_PUBLIC_LOQUARIUM_EXTENSION_ID` | the unpacked extension's ID | the browser extension to talk to (set it once it is on the Chrome Web Store) |
 | `SLACK_API_BASE` | `https://slack.com/api` | point the API elsewhere, for tests |
+| `SLACK_FILES_ORIGIN` | — | fetch Slack files from another origin, for tests |
 
 ## Features
 
@@ -119,6 +127,15 @@ npm run dev        # or: npm run build && npm start
   [Connecting to Slack](#connecting-to-slack)), or open / drop `.json` files.
 - **Library** kept in the browser (IndexedDB): archives per workspace,
   recently opened conversations, nothing sent to a server.
+- **Screenshots kept**: the images attached to messages are downloaded with the
+  conversation (Slack's thumbnail up to 1024 px — legible, a fraction of the
+  original's weight), shown in the messages, enlarged on click, and embedded in
+  the exported HTML page. Other attachments stay a card with a link to Slack.
+  An update only downloads the new ones. Untick *Import screenshots* to skip them.
+- **Who is in a conversation**: the sidebar lists those who *wrote* (with their
+  message count — click one to filter), then the *other members* (from Slack's
+  member list, stored at import, up to 500; for an older group DM, from the
+  handles in its name), then those who only *reacted or were mentioned*.
 - **Large conversations stay fluid**: a conversation opens on its latest 150
   messages, and older ones are added as you scroll up (or with the button at
   the top). Search and the author filter still cover the whole conversation.

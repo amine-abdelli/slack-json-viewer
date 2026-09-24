@@ -48,8 +48,13 @@ export interface SlackFile {
   thumb_360?: string;
   thumb_480?: string;
   thumb_720?: string;
+  thumb_800?: string;
+  thumb_960?: string;
+  thumb_1024?: string;
   original_w?: number;
   original_h?: number;
+  /** Hosted elsewhere (Google Drive…): nothing to download from Slack. */
+  is_external?: boolean;
 }
 
 export type SlackRichTextStyle = {
@@ -122,6 +127,8 @@ export interface SlackConversation {
   channel_id: string;
   name: string;
   messages: SlackMessage[];
+  /** Everyone in it, writers or not, when the import could list them. */
+  members?: string[];
 }
 
 /** A user resolved from the directory file (Name / ID / Email). */

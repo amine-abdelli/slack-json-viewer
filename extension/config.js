@@ -9,6 +9,11 @@ export const CONFIG = {
   appTabs: ["https://app.slack.com/*"],
   /** Opened in the background when no Slack tab is open. */
   appStart: "https://app.slack.com/client",
+  /**
+   * Tests only: fetch `https://files.slack.com/…` from this origin instead.
+   * Always null in the real extension.
+   */
+  filesOrigin: null,
   /** Where the popup's "Open Loquarium" button goes. */
   loquariumUrl: "https://loquarium.vercel.app/#/import",
 };

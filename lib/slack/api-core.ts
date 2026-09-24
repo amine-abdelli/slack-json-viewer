@@ -56,6 +56,7 @@ export const READ_METHODS = [
   "conversations.info",
   "conversations.history",
   "conversations.replies",
+  "conversations.members",
   "users.info",
 ] as const;
 export type ReadMethod = (typeof READ_METHODS)[number];
@@ -167,11 +168,13 @@ export interface AuthTest {
   user_id?: string;
 }
 
-/** The dump the viewer consumes: `{ channel_id, name, messages }`. */
+/** The dump the viewer consumes: `{ channel_id, name, messages, members? }`. */
 export interface Conversation {
   channel_id: string;
   name: string;
   messages: RawMessage[];
+  /** Everyone in it, writers or not — absent when too many to be worth listing. */
+  members?: string[];
 }
 
 interface ConversationsResponse extends ApiResponse {
@@ -187,6 +190,11 @@ interface HistoryResponse extends ApiResponse {
 
 interface InfoResponse extends ApiResponse {
   channel?: RawChannel;
+}
+
+interface MembersResponse extends ApiResponse {
+  members?: string[];
+  response_metadata?: { next_cursor?: string };
 }
 
 interface UserResponse extends ApiResponse {
@@ -465,6 +473,36 @@ export async function conversationsInfo(
   return body.channel ?? null;
 }
 
+/** Above this, a conversation's members are not listed: a crowd, not a cast. */
+export const MAX_MEMBERS = 500;
+
+/**
+ * The members of a conversation, or null when it has more than `MAX_MEMBERS`
+ * or Slack will not say (an extension older than 0.3.0 refuses the method).
+ */
+export async function conversationsMembers(
+  ctx: ApiContext,
+  channel: string,
+  signal?: AbortSignal,
+): Promise<string[] | null> {
+  const out: string[] = [];
+  let cursor = "";
+  for (let page = 0; page < 5; page++) {
+    const body = await call<MembersResponse>(
+      ctx,
+      "conversations.members",
+      { channel, limit: String(MAX_MEMBERS + 1), ...(cursor ? { cursor } : {}) },
+      { signal, tolerate: ["channel_not_found", "method_not_supported_for_channel_type"] },
+    );
+    if (!body.ok) return null;
+    out.push(...(body.members ?? []));
+    if (out.length > MAX_MEMBERS) return null;
+    cursor = body.response_metadata?.next_cursor ?? "";
+    if (!cursor) return out;
+  }
+  return null;
+}
+
 /** The fields the channel picker shows. */
 export function summariseChannels(raw: RawChannel[]): ChannelSummary[] {
   return raw
@@ -701,6 +739,12 @@ export async function dumpConversation(
   // one it cannot read either.
   if (!info) onLog?.(ctx.word({ key: "noChannelInfo", params: { channel } }));
 
+  // Who is in it besides those who wrote: for the viewer's people list.
+  const members =
+    (info?.num_members ?? 0) > MAX_MEMBERS
+      ? null
+      : await conversationsMembers(ctx, channel, signal).catch(() => null);
+
   const messages = await conversationsHistory(ctx, channel, onLog, signal);
   if (messages.length === 0) {
     throw new SlackApiError(ctx.word({ key: "emptyHistory" }), "empty_history");
@@ -742,5 +786,6 @@ export async function dumpConversation(
     // Left empty for DMs: the viewer rebuilds the title from the participants.
     name: info?.name || info?.name_normalized || "",
     messages,
+    ...(members ? { members } : {}),
   };
 }

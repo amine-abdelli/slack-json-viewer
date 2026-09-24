@@ -7,6 +7,7 @@
  *   { type: "ping" }                       → { ok, version }
  *   { type: "teams", open? }               → { ok, teams: [{ id, name, domain, userId, icon }] }
  *   { type: "call", team, method, params } → { ok, status, retryAfter, body }
+ *   { type: "file", team, url }            → { ok, status, retryAfter, type, data }
  *
  * The Slack web client keeps each signed-in workspace, with its client token,
  * in the `localConfig_v2` entry of app.slack.com's localStorage. The worker
@@ -14,6 +15,10 @@
  * keeps the tokens for the browser session only, and makes each API request
  * itself, with the browser's own Slack cookie. **Tokens never leave the
  * extension**, and only the read-only methods below are relayed.
+ *
+ * `file` downloads one image attached to a message (a screenshot), for the
+ * copy Loquarium keeps: only from Slack's file hosts (`*.slack.com/files-…`),
+ * only images, at most 8 MB, returned base64-encoded.
  */
 
 import { CONFIG } from "./config.js";
@@ -27,6 +32,7 @@ const READ_METHODS = new Set([
   "conversations.info",
   "conversations.history",
   "conversations.replies",
+  "conversations.members",
   "users.info",
 ]);
 
@@ -153,6 +159,62 @@ async function callSlack(teamId, method, params) {
   };
 }
 
+/* ------------------------------------------------------------------- file */
+
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+
+/** Slack's file hosts only — the same rule as `isSlackFileUrl` in Loquarium. */
+function isSlackFileUrl(value) {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "slack.com" || url.hostname.endsWith(".slack.com")) &&
+      url.pathname.startsWith("/files-")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function toBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+async function fetchFile(teamId, url) {
+  if (typeof url !== "string" || !isSlackFileUrl(url)) {
+    return { ok: false, error: "url_not_allowed" };
+  }
+  let team = (await storedTeams()).find((t) => t.id === teamId);
+  if (!team) team = (await readTeams(true)).find((t) => t.id === teamId);
+  if (!team) return { ok: false, error: "team_not_found" };
+
+  const target = CONFIG.filesOrigin ? CONFIG.filesOrigin + new URL(url).pathname : url;
+  const res = await fetch(target, {
+    credentials: "include",
+    headers: { authorization: `Bearer ${team.token}` },
+  });
+  const type = (res.headers.get("content-type") || "").split(";")[0].trim();
+  if (!res.ok) {
+    return {
+      ok: true,
+      status: res.status,
+      retryAfter: Number(res.headers.get("retry-after")) || undefined,
+    };
+  }
+  // Signed out, Slack answers with its sign-in page rather than the image.
+  if (!type.startsWith("image/")) return { ok: true, status: 415 };
+  const buffer = await res.arrayBuffer();
+  if (buffer.byteLength > MAX_FILE_BYTES) return { ok: true, status: 413 };
+  return { ok: true, status: 200, type, data: toBase64(buffer) };
+}
+
 /* --------------------------------------------------------------- messages */
 
 async function handle(message) {
@@ -165,6 +227,8 @@ async function handle(message) {
     }
     case "call":
       return callSlack(String(message.team ?? ""), String(message.method ?? ""), message.params);
+    case "file":
+      return fetchFile(String(message.team ?? ""), message.url);
     default:
       return { ok: false, error: "unknown_message" };
   }

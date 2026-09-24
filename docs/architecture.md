@@ -105,6 +105,19 @@ archive record holds a summary of each conversation (kind, counts, period,
 participants, size, last opened); the conversation itself is stored separately
 and read only when it is opened. Importing a conversation again replaces it.
 
+**Screenshots.** The images attached to messages are kept in a third store,
+`images`, keyed `<archive>/<conversation>/<Slack file ID>` → `{ blob }`
+(IndexedDB version 2). `collectScreenshots` (`lib/slack/screenshots.ts`) picks
+them — image files only, not external, not tombstoned — and the URL of Slack's
+largest thumbnail up to 1024 px (the original when it has none and weighs under
+3 MB). The wizard downloads the ones the store does not have yet, four at a
+time, through the source's `image()`; one Slack will not serve stays a card
+with a link. The summary records `imageCount` / `imageBytes`, counted in the
+library's sizes. Opening a conversation loads its images with it and hands
+object URLs to the messages through `ImagesProvider`
+(`components/slack/images.tsx`); the HTML export embeds them as `data:` URLs.
+Deleting a conversation or an archive deletes its images.
+
 Directories are **merged** into the one already known (a newer entry wins). The
 directory, the manual names and the display preferences stay in `localStorage`
 under the `slack-viewer:*` keys; the export history under `loquarium:exports`.
@@ -246,16 +259,20 @@ asks the person for nothing.
 - `teams` reads the signed-in workspaces from `localStorage["localConfig_v2"]`
   in an app.slack.com tab (opening one in the background if needed) and
   returns their names and domains — never their tokens.
-- `call` makes **one** read-only API request (seven allowed methods) with the
+- `call` makes **one** read-only API request (eight allowed methods) with the
   stored client token and the browser's `d` cookie, and returns Slack's answer.
+- `file` downloads **one** image attached to a message, from Slack's file hosts
+  only (`*.slack.com/files-…`), images only, at most 8 MB, returned base64.
+  Added in 0.2.0: an older extension answers `unknown_message`, and the wizard
+  imports without images and says to update it.
 
 Everything else runs in the page: `lib/slack/api-core.ts` is the same client the
 server uses, with the transport and the wording injected
 (`lib/slack/sources.ts` → `extensionSource`). No request goes through
 Loquarium's server on this path. See `extension/README.md`.
 
-The import wizard only sees a `SlackSource` (`channels`, `dump`, `users`): the
-bridge and the extension are interchangeable behind it.
+The import wizard only sees a `SlackSource` (`channels`, `dump`, `users`,
+`image`): the bridge and the extension are interchangeable behind it.
 
 ## The bridge
 
@@ -266,8 +283,9 @@ bridge and the extension are interchangeable behind it.
 | `/api/slack/status` | `GET` | Whether the bridge is available, and which workspaces this browser has signed in to (from its cookies). |
 | `/api/slack/run` | `POST` | Runs one operation and streams its progress. |
 | `/api/slack/logout` | `POST` | Clears the credential cookie for a workspace. |
+| `/api/slack/file` | `POST` | `{ workspace, url }` → one image attached to a message, fetched with the stored credentials. Slack's file hosts only (`isSlackFileUrl`), images only, 8 MB at most; a 429 is passed on with its `Retry-After`. `SLACK_FILES_ORIGIN` redirects it to a stub in tests. |
 
-All three run on the Node.js runtime and are never cached. `run` declares
+All four run on the Node.js runtime and are never cached. `run` declares
 `maxDuration = 300`, the most every Vercel plan allows.
 
 ### The `run` protocol
@@ -318,6 +336,7 @@ URL-encoded, and encoding it again breaks authentication.
 | Channel name | `conversations.info` | Empty for DMs |
 | Messages | `conversations.history` | Roots only, newest first |
 | Thread replies | `conversations.replies` | One call per thread root |
+| Members | `conversations.members` | Up to 500, stored as `members`; skipped above, or when refused |
 | Participants' names | `users.info` | One call per ID found in the dump |
 
 - **Pagination** follows `response_metadata.next_cursor`, capped at 30 pages for

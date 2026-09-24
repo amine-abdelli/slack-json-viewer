@@ -57,6 +57,9 @@ export function parseConversation(input: unknown, fileName?: string): SlackConve
         ? obj.name
         : (fileName?.replace(/\.json$/i, "") ?? "conversation"),
     messages: messages as SlackMessage[],
+    ...(Array.isArray(obj.members) && obj.members.every((id) => typeof id === "string")
+      ? { members: obj.members as string[] }
+      : {}),
   };
 }
 

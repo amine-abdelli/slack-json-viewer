@@ -19,11 +19,13 @@ import { ExportSheet } from "@/components/app/export-sheet";
 import { IconButton, LqButton, SearchField, Segmented, Tag } from "@/components/app/ui";
 import { Message } from "@/components/slack/message";
 import { MessageList } from "@/components/slack/message-list";
+import { ImagesProvider, useObjectUrls } from "@/components/slack/images";
 import { useI18n } from "@/lib/i18n/react";
 import type { Route } from "@/lib/app/route";
 import type { ExportRecord } from "@/lib/app/exports-history";
 import {
   loadConversation,
+  loadImages,
   touchConversation,
   type Archive,
   type ConversationSummary,
@@ -36,6 +38,7 @@ import {
   tsToDate,
 } from "@/lib/slack/parse";
 import { isBuiltinUser, resolveUser } from "@/lib/slack/users";
+import { conversationPeople, type HandleOnly } from "@/lib/slack/people";
 import type { NormalizedMessage, SlackConversation, UserDirectory } from "@/lib/slack/types";
 import { cn } from "@/lib/utils";
 
@@ -111,17 +114,23 @@ export function ArchiveView({
 
   /* ------------------------------------------------------------ loading */
 
-  const [loaded, setLoaded] = React.useState<{ key: string; data: SlackConversation | null } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = React.useState<{
+    key: string;
+    data: SlackConversation | null;
+    /** Screenshots kept with it, by Slack file ID. */
+    images: Map<string, Blob>;
+  } | null>(null);
   const loadKey = `${route.archiveId}/${route.conversationId ?? ""}`;
 
   React.useEffect(() => {
     if (!route.conversationId) return;
     let cancelled = false;
-    void loadConversation(route.archiveId, route.conversationId).then((data) => {
+    void Promise.all([
+      loadConversation(route.archiveId, route.conversationId),
+      loadImages(route.archiveId, route.conversationId).catch(() => new Map<string, Blob>()),
+    ]).then(([data, images]) => {
       if (cancelled) return;
-      setLoaded({ key: loadKey, data });
+      setLoaded({ key: loadKey, data, images });
       if (data) {
         void touchConversation(route.archiveId, route.conversationId!).then(onChanged);
       }
@@ -134,6 +143,8 @@ export function ArchiveView({
   }, [loadKey]);
 
   const conversation = loaded?.key === loadKey ? loaded.data : null;
+  const imageBlobs = loaded?.key === loadKey ? loaded.images : null;
+  const imageUrls = useObjectUrls(imageBlobs);
   const loading = Boolean(route.conversationId) && loaded?.key !== loadKey;
 
   /* ------------------------------------------------------------ derived */
@@ -165,6 +176,15 @@ export function ArchiveView({
     }
     return out;
   }, [messages]);
+
+  /** Members who did not write, and people who only reacted or were mentioned. */
+  const extraPeople = React.useMemo(
+    () =>
+      conversation && meta
+        ? conversationPeople(conversation, meta.participants, directory)
+        : { members: [], others: [] },
+    [conversation, meta, directory],
+  );
 
   /* ------------------------------------------------------------ filters */
 
@@ -308,6 +328,7 @@ export function ArchiveView({
   const hasConversation = Boolean(route.conversationId);
 
   return (
+    <ImagesProvider images={imageUrls}>
     <div className="relative flex min-h-0 flex-1">
       <Navigator
         archive={archive}
@@ -319,6 +340,8 @@ export function ArchiveView({
         searchRef={navSearch}
         unresolvedCount={unresolved.length}
         people={people}
+        members={extraPeople.members}
+        others={extraPeople.others}
         counts={counts}
         author={author}
         onAuthor={setAuthor}
@@ -526,6 +549,7 @@ export function ArchiveView({
           meta={meta}
           conversation={conversation}
           messages={messages}
+          images={imageBlobs}
           directory={directory}
           overrides={overrides}
           showEmail={showEmail}
@@ -538,6 +562,7 @@ export function ArchiveView({
         />
       ) : null}
     </div>
+    </ImagesProvider>
   );
 }
 
@@ -559,6 +584,8 @@ function Navigator({
   searchRef,
   unresolvedCount,
   people,
+  members,
+  others,
   counts,
   author,
   onAuthor,
@@ -577,6 +604,8 @@ function Navigator({
   searchRef: React.Ref<HTMLInputElement>;
   unresolvedCount: number;
   people: string[];
+  members: (string | HandleOnly)[];
+  others: string[];
   counts: Map<string, number>;
   author: string | null;
   onAuthor: (id: string | null) => void;
@@ -727,6 +756,9 @@ function Navigator({
                 </button>
               ) : null}
             </div>
+            {members.length > 0 || others.length > 0 ? (
+              <div className="px-2 pt-1 pb-0.5 text-[11px] text-fg-3">{m.archive.wrote}</div>
+            ) : null}
             {people.map((id) => {
               const user = resolveUser(id, directory, overrides);
               const active = author === id;
@@ -774,6 +806,20 @@ function Navigator({
                 </div>
               );
             })}
+            <PeopleGroup
+              title={m.archive.otherMembers}
+              people={members}
+              directory={directory}
+              overrides={overrides}
+              onFix={onFix}
+            />
+            <PeopleGroup
+              title={m.archive.reactedOrMentioned}
+              people={others}
+              directory={directory}
+              overrides={overrides}
+              onFix={onFix}
+            />
           </>
         ) : null}
       </div>
@@ -857,3 +903,99 @@ function ThreadPanel({
   );
 }
 
+/** Shown at first per group; the rest behind "show more". */
+const GROUP_PREVIEW = 8;
+
+/**
+ * People who are in the conversation without having written in it: listed for
+ * the record, not a filter (they have no message to show).
+ */
+function PeopleGroup({
+  title,
+  people,
+  directory,
+  overrides,
+  onFix,
+}: {
+  title: string;
+  people: (string | HandleOnly)[];
+  directory: UserDirectory;
+  overrides: Record<string, string>;
+  onFix: (id: string) => void;
+}) {
+  const { m, p } = useI18n();
+  const [open, setOpen] = React.useState(false);
+  if (people.length === 0) return null;
+  const shown = open ? people : people.slice(0, GROUP_PREVIEW);
+  const hidden = people.length - shown.length;
+
+  return (
+    <>
+      <div className="flex items-center justify-between px-2 pt-2.5 pb-0.5 text-[11px] text-fg-3">
+        <span>{title}</span>
+        <span className="tabular-nums">{people.length}</span>
+      </div>
+      {shown.map((person) => {
+        if (typeof person !== "string") {
+          const name = person.handle
+            .split(/[._-]+/)
+            .filter(Boolean)
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+          return (
+            <div
+              key={`@${person.handle}`}
+              title={`@${person.handle}`}
+              className="flex h-[30px] items-center gap-2 px-2 text-[13px] text-fg-3"
+            >
+              <span className="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-surface-3 font-read text-[8.5px] font-bold text-fg-2">
+                {name.slice(0, 1)}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{name}</span>
+            </div>
+          );
+        }
+        const user = resolveUser(person, directory, overrides);
+        const unknownId = !user.known && !isBuiltinUser(person);
+        return (
+          <div key={person} className="flex items-center">
+            <div
+              title={user.email ?? person}
+              className="flex h-[30px] min-w-0 flex-1 items-center gap-2 px-2 text-[13px] text-fg-3"
+            >
+              <span
+                className="grid size-[18px] shrink-0 place-items-center rounded-[4px] font-read text-[8.5px] font-bold text-white opacity-80"
+                style={{ background: user.color }}
+              >
+                {user.initials}
+              </span>
+              <span className={cn("min-w-0 flex-1 truncate", unknownId && "font-mono text-[12px]")}>
+                {user.name}
+              </span>
+            </div>
+            {unknownId ? (
+              <button
+                type="button"
+                onClick={() => onFix(person)}
+                title={m.people.name}
+                aria-label={`${m.people.name} — ${person}`}
+                className="mr-0.5 grid size-[26px] place-items-center rounded-[5px] text-warning hover:bg-warning-soft"
+              >
+                <Pencil className="size-[13px]" />
+              </button>
+            ) : null}
+          </div>
+        );
+      })}
+      {hidden > 0 || open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="mx-2 mt-0.5 self-start border-0 bg-transparent p-0 text-left text-[12px] font-medium text-brand-text"
+        >
+          {open ? m.archive.showFewer : p(m.archive.showMorePeople, hidden)}
+        </button>
+      ) : null}
+    </>
+  );
+}

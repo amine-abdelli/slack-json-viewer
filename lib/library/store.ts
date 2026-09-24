@@ -30,6 +30,9 @@ export interface ConversationSummary {
   lastTs?: string;
   /** Size of the stored JSON. */
   bytes: number;
+  /** Images kept with it (screenshots), and their total size. */
+  imageCount?: number;
+  imageBytes?: number;
   importedAt: number;
   openedAt?: number;
 }
@@ -52,9 +55,15 @@ export interface ImportedConversation {
 }
 
 const DB_NAME = "loquarium";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const ARCHIVES = "archives";
 const CONVERSATIONS = "conversations";
+/** Copies of the images attached to messages, `<archive>/<conversation>/<file>` → `StoredImage`. */
+const IMAGES = "images";
+
+export interface StoredImage {
+  blob: Blob;
+}
 
 export const FILES_ARCHIVE_ID = "files";
 export function slackArchiveId(workspace: string): string {
@@ -75,6 +84,14 @@ interface Backend {
   put(store: string, key: string, value: unknown): Promise<void>;
   delete(store: string, key: string): Promise<void>;
   clear(store: string): Promise<void>;
+  /** Entries whose key starts with `prefix`. */
+  getPrefix(store: string, prefix: string): Promise<[string, unknown][]>;
+  deletePrefix(store: string, prefix: string): Promise<void>;
+}
+
+/** Every key starting with `prefix`: `\uffff` sorts after any character in a key. */
+function prefixRange(prefix: string): IDBKeyRange {
+  return IDBKeyRange.bound(prefix, `${prefix}\uffff`);
 }
 
 function request<T>(req: IDBRequest<T>): Promise<T> {
@@ -91,10 +108,17 @@ function openIndexedDb(): Promise<IDBDatabase> {
       const db = req.result;
       if (!db.objectStoreNames.contains(ARCHIVES)) db.createObjectStore(ARCHIVES);
       if (!db.objectStoreNames.contains(CONVERSATIONS)) db.createObjectStore(CONVERSATIONS);
+      if (!db.objectStoreNames.contains(IMAGES)) db.createObjectStore(IMAGES);
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // A newer version opened in another tab: let it upgrade.
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
-    req.onblocked = () => reject(new Error("IndexedDB blocked"));
+    // Another tab still holds the old version: the upgrade waits for it to
+    // close (it does, see `onversionchange`) rather than failing over to memory.
   });
 }
 
@@ -113,6 +137,18 @@ function indexedDbBackend(db: IDBDatabase): Backend {
     clear: async (name) => {
       await request(store(name, "readwrite").clear());
     },
+    getPrefix: async (name, prefix) => {
+      const s = store(name, "readonly");
+      const range = prefixRange(prefix);
+      const [keys, values] = await Promise.all([
+        request(s.getAllKeys(range)),
+        request(s.getAll(range)),
+      ]);
+      return keys.map((k, i) => [String(k), values[i]]);
+    },
+    deletePrefix: async (name, prefix) => {
+      await request(store(name, "readwrite").delete(prefixRange(prefix)));
+    },
   };
 }
 
@@ -129,6 +165,12 @@ function memoryBackend(): Backend {
     put: async (name, key, value) => void of(name).set(key, value),
     delete: async (name, key) => void of(name).delete(key),
     clear: async (name) => of(name).clear(),
+    getPrefix: async (name, prefix) =>
+      [...of(name).entries()].filter(([k]) => k.startsWith(prefix)),
+    deletePrefix: async (name, prefix) => {
+      const s = of(name);
+      for (const k of [...s.keys()]) if (k.startsWith(prefix)) s.delete(k);
+    },
   };
 }
 
@@ -201,6 +243,8 @@ export async function saveConversations(
     const index = archive.conversations.findIndex((c) => c.id === summary.id);
     if (index >= 0) {
       summary.openedAt = archive.conversations[index].openedAt;
+      summary.imageCount = archive.conversations[index].imageCount;
+      summary.imageBytes = archive.conversations[index].imageBytes;
       archive.conversations[index] = summary;
     } else {
       archive.conversations.push(summary);
@@ -227,6 +271,7 @@ export async function deleteConversation(archiveId: string, conversationId: stri
   const db = await getBackend();
   const archive = (await db.get(ARCHIVES, archiveId)) as Archive | undefined;
   await db.delete(CONVERSATIONS, conversationKey(archiveId, conversationId));
+  await db.deletePrefix(IMAGES, `${conversationKey(archiveId, conversationId)}/`);
   if (!archive) return;
   archive.conversations = archive.conversations.filter((c) => c.id !== conversationId);
   if (archive.conversations.length === 0) await db.delete(ARCHIVES, archiveId);
@@ -239,15 +284,64 @@ export async function deleteArchive(archiveId: string) {
   for (const c of archive?.conversations ?? []) {
     await db.delete(CONVERSATIONS, conversationKey(archiveId, c.id));
   }
+  await db.deletePrefix(IMAGES, `${archiveId}/`);
   await db.delete(ARCHIVES, archiveId);
 }
 
 export async function clearLibrary() {
   const db = await getBackend();
   await db.clear(CONVERSATIONS);
+  await db.clear(IMAGES);
   await db.clear(ARCHIVES);
 }
 
 export function archiveBytes(archive: Archive): number {
-  return archive.conversations.reduce((sum, c) => sum + (c.bytes ?? 0), 0);
+  return archive.conversations.reduce((sum, c) => sum + (c.bytes ?? 0) + (c.imageBytes ?? 0), 0);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Images                                                                     */
+/* -------------------------------------------------------------------------- */
+
+function imagePrefix(archiveId: string, conversationId: string): string {
+  return `${conversationKey(archiveId, conversationId)}/`;
+}
+
+/** The images kept for a conversation, by Slack file ID. */
+export async function loadImages(
+  archiveId: string,
+  conversationId: string,
+): Promise<Map<string, Blob>> {
+  const db = await getBackend();
+  const prefix = imagePrefix(archiveId, conversationId);
+  const out = new Map<string, Blob>();
+  for (const [key, value] of await db.getPrefix(IMAGES, prefix)) {
+    const blob = (value as StoredImage | undefined)?.blob;
+    if (blob) out.set(key.slice(prefix.length), blob);
+  }
+  return out;
+}
+
+export async function saveImage(
+  archiveId: string,
+  conversationId: string,
+  fileId: string,
+  blob: Blob,
+): Promise<void> {
+  const db = await getBackend();
+  const value: StoredImage = { blob };
+  await db.put(IMAGES, `${imagePrefix(archiveId, conversationId)}${fileId}`, value);
+}
+
+/** Records how many images a conversation keeps, for the library's sizes. */
+export async function updateImageStats(archiveId: string, conversationId: string): Promise<Archive | null> {
+  const db = await getBackend();
+  const images = await loadImages(archiveId, conversationId);
+  const archive = (await db.get(ARCHIVES, archiveId)) as Archive | undefined;
+  const summary = archive?.conversations.find((c) => c.id === conversationId);
+  if (!archive || !summary) return null;
+  summary.imageCount = images.size;
+  summary.imageBytes = [...images.values()].reduce((s, b) => s + b.size, 0);
+  await db.put(ARCHIVES, archive.id, archive);
+  return archive;
 }
