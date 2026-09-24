@@ -23,6 +23,7 @@ import { ImportView } from "@/components/app/import-view";
 import { ArchiveView } from "@/components/app/archive-view";
 import { ExportsView } from "@/components/app/exports-view";
 import { SettingsView } from "@/components/app/settings-view";
+import { WelcomeView } from "@/components/app/welcome-view";
 import { useI18n } from "@/lib/i18n/react";
 import { useRoute, type Route } from "@/lib/app/route";
 import { readExports, type ExportRecord } from "@/lib/app/exports-history";
@@ -235,6 +236,19 @@ export function App() {
   ];
   const isActive = (key: Route["name"]) =>
     route.name === key || (key === "library" && route.name === "archive");
+
+  if (route.name === "welcome") {
+    return (
+      <div className="flex h-svh w-full overflow-hidden bg-bg text-fg">
+        <WelcomeView
+          archiveCount={archives ? archives.length : null}
+          onStart={() =>
+            navigate(archives && archives.length > 0 ? { name: "library" } : { name: "import" })
+          }
+        />
+      </div>
+    );
+  }
 
   /* ---------------------------------------------------------------- view */
 

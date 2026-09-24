@@ -6,6 +6,7 @@ import * as React from "react";
  * Screens live in the URL hash, so the browser's back and forward buttons move
  * between them, and a reload stays where it was.
  *
+ *   #/            the welcome page (also no hash at all)
  *   #/library
  *   #/import
  *   #/archive/<archive id>/<conversation id>[/people]
@@ -13,6 +14,7 @@ import * as React from "react";
  *   #/settings
  */
 export type Route =
+  | { name: "welcome" }
   | { name: "library" }
   | { name: "import" }
   | { name: "archive"; archiveId: string; conversationId?: string; tab: "conversations" | "people" }
@@ -25,6 +27,10 @@ const NO_CONVERSATION = "_";
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(safeDecode);
   switch (parts[0]) {
+    case undefined:
+      return { name: "welcome" };
+    case "library":
+      return { name: "library" };
     case "import":
       return { name: "import" };
     case "exports":
@@ -57,6 +63,8 @@ export function routeHash(route: Route): string {
       }
       return `#/${segments.map(encodeURIComponent).join("/")}`;
     }
+    case "welcome":
+      return "#/";
     default:
       return `#/${route.name}`;
   }

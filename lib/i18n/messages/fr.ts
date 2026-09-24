@@ -200,6 +200,39 @@ export const fr = {
     missingToken: "Collez le jeton.",
   },
 
+  welcome: {
+    eyebrow: "Archives Slack · sur votre appareil",
+    title: "Vos conversations Slack, telles qu'elles ont eu lieu.",
+    body:
+      "Pour vos besoins d'archivage, de passation ou de preuve : importez les canaux et messages directs qui comptent, retrouvez chaque décision avec son contexte, et transmettez l'historique à qui n'a pas accès à Slack.",
+    points: [
+      "Connexion par jeton ou par code QR, SSO d'entreprise compris",
+      "Tout reste dans ce navigateur — aucun serveur de stockage",
+      "Export en page HTML autonome, lisible hors ligne",
+    ],
+    cta: "Commencer",
+    ctaLibrary: "Ouvrir ma bibliothèque",
+    onDevice: plural({
+      one: "{n} archive vous attend sur cet appareil",
+      other: "{n} archives vous attendent sur cet appareil",
+    }),
+    noAccount: "Aucun compte à créer.",
+    footer:
+      "Vos conversations restent sur votre appareil.",
+    caption:
+      "Chaque conversation telle qu'elle s'est déroulée — fils, réactions, fichiers et modifications — prête à être lue, recherchée et transmise.",
+    sample: {
+      meta: "acme · #product-launch",
+      first:
+        "Bonjour à tous :wave: Le lancement d'*Atlas 2* est confirmé pour le *jeudi 12 mars*. Ce canal devient le fil de référence : décisions, livrables et validations.",
+      reply1: "Parfait, je prépare le rétroplanning.",
+      reply2: "Je m'occupe de la communication interne.",
+      second: "<@U0INESHADD> peux-tu partager la dernière version du dossier de conformité ? On en a besoin pour le comité de jeudi.",
+      third: "Voici la v3, relue par le juridique. Les changements sont en section 4.",
+      file: "Dossier-conformite-Atlas2-v3.pdf",
+    },
+  },
+
   app: {
     nav: {
       library: "Bibliothèque",

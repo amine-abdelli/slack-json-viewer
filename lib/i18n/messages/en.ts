@@ -194,6 +194,39 @@ export const en: Messages = {
     missingToken: "Paste the token.",
   },
 
+  welcome: {
+    eyebrow: "Slack archives · on your device",
+    title: "Your Slack conversations, exactly as they happened.",
+    body:
+      "For your archiving, handover or evidence needs: import the channels and direct messages that matter, find every decision with its context, and pass the history on to anyone without access to Slack.",
+    points: [
+      "Sign in with a token or a QR code, company SSO included",
+      "Everything stays in this browser — no storage server",
+      "Export as a standalone HTML page, readable offline",
+    ],
+    cta: "Get started",
+    ctaLibrary: "Open my library",
+    onDevice: plural({
+      one: "{n} archive is waiting on this device",
+      other: "{n} archives are waiting on this device",
+    }),
+    noAccount: "No account to create.",
+    footer:
+      "Your conversations stay on your device.",
+    caption:
+      "Every conversation as it unfolded — threads, reactions, files and edits — ready to read, search and pass on.",
+    sample: {
+      meta: "acme · #product-launch",
+      first:
+        "Hi everyone :wave: The *Atlas 2* launch is confirmed for *Thursday 12 March*. This channel is now the reference thread: decisions, deliverables and sign-offs.",
+      reply1: "Great, I'll draft the schedule.",
+      reply2: "I'll take care of internal comms.",
+      second: "<@U0INESHADD> could you share the latest compliance pack? We need it for Thursday's committee.",
+      third: "Here's v3, reviewed by legal. The changes are in section 4.",
+      file: "Compliance-pack-Atlas2-v3.pdf",
+    },
+  },
+
   app: {
     nav: {
       library: "Library",

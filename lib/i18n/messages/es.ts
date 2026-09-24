@@ -194,6 +194,39 @@ export const es: Messages = {
     missingToken: "Pega el token.",
   },
 
+  welcome: {
+    eyebrow: "Archivos de Slack · en tu dispositivo",
+    title: "Tus conversaciones de Slack, tal como ocurrieron.",
+    body:
+      "Para tus necesidades de archivo, traspaso o prueba: importa los canales y mensajes directos que importan, encuentra cada decisión con su contexto y comparte el historial con quien no tenga acceso a Slack.",
+    points: [
+      "Inicio de sesión con token o código QR, SSO de empresa incluido",
+      "Todo se queda en este navegador: ningún servidor de almacenamiento",
+      "Exportación en página HTML independiente, legible sin conexión",
+    ],
+    cta: "Empezar",
+    ctaLibrary: "Abrir mi biblioteca",
+    onDevice: plural({
+      one: "{n} archivo te espera en este dispositivo",
+      other: "{n} archivos te esperan en este dispositivo",
+    }),
+    noAccount: "No hace falta crear una cuenta.",
+    footer:
+      "Tus conversaciones se quedan en tu dispositivo.",
+    caption:
+      "Cada conversación tal como se desarrolló —hilos, reacciones, archivos y ediciones— lista para leer, buscar y compartir.",
+    sample: {
+      meta: "acme · #product-launch",
+      first:
+        "Hola a todos :wave: El lanzamiento de *Atlas 2* está confirmado para el *jueves 12 de marzo*. Este canal pasa a ser el hilo de referencia: decisiones, entregables y validaciones.",
+      reply1: "Perfecto, preparo el calendario.",
+      reply2: "Yo me encargo de la comunicación interna.",
+      second: "<@U0INESHADD> ¿puedes compartir la última versión del dossier de cumplimiento? Lo necesitamos para el comité del jueves.",
+      third: "Aquí está la v3, revisada por el equipo jurídico. Los cambios están en la sección 4.",
+      file: "Dossier-cumplimiento-Atlas2-v3.pdf",
+    },
+  },
+
   app: {
     nav: {
       library: "Biblioteca",

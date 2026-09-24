@@ -175,6 +175,34 @@ export const zh: Messages = {
     missingToken: "请粘贴令牌。",
   },
 
+  welcome: {
+    eyebrow: "Slack 归档 · 保存在您的设备上",
+    title: "您的 Slack 会话，原汁原味。",
+    body:
+      "满足您的归档、交接或取证需求：导入重要的频道和私信，连同上下文找到每一项决策，并把历史记录交给无法访问 Slack 的人。",
+    points: [
+      "使用令牌或二维码登录，支持企业 SSO",
+      "所有内容都留在此浏览器中——没有存储服务器",
+      "导出为独立 HTML 页面，可离线阅读",
+    ],
+    cta: "开始使用",
+    ctaLibrary: "打开我的资料库",
+    onDevice: plural({ other: "本设备上有 {n} 个归档" }),
+    noAccount: "无需创建账户。",
+    footer:
+      "您的会话保存在您的设备上。",
+    caption: "每个会话都保持原貌——话题、回应、文件和编辑记录——随时可以阅读、搜索和分享。",
+    sample: {
+      meta: "acme · #product-launch",
+      first: "大家好 :wave: *Atlas 2* 的发布已确定在 *3 月 12 日星期四*。此频道将作为参考话题：决策、交付物和审批都在这里。",
+      reply1: "好的，我来准备排期。",
+      reply2: "内部沟通交给我。",
+      second: "<@U0INESHADD> 能分享一下合规材料的最新版本吗？周四的委员会需要用。",
+      third: "这是法务审阅过的 v3，改动在第 4 节。",
+      file: "Atlas2-合规材料-v3.pdf",
+    },
+  },
+
   app: {
     nav: {
       library: "资料库",
