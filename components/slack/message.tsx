@@ -17,6 +17,7 @@ import type {
   UserDirectory,
 } from "@/lib/slack/types";
 import { MessageBody, type RenderContext } from "./rich-text";
+import { ImageZoom, useImageUrl } from "./images";
 import { cn } from "@/lib/utils";
 
 /*
@@ -230,8 +231,20 @@ const BADGE_COLORS: Record<string, string> = {
   zip: "#5f6773",
 };
 
-function FileCard({ file }: { file: SlackFile }) {
+const IMAGE_MAX_W = 480;
+const IMAGE_MAX_H = 360;
+
+/** The size an image is shown at in a message: within 480 × 360, never enlarged. */
+function imageBox(w?: number, h?: number): { width: number; height: number } | null {
+  if (!w || !h) return null;
+  const scale = Math.min(1, IMAGE_MAX_W / w, IMAGE_MAX_H / h);
+  return { width: Math.round(w * scale), height: Math.round(h * scale) };
+}
+
+function FileCard({ file, isStatic }: { file: SlackFile; isStatic: boolean }) {
   const { m, fmt } = useI18n();
+  const src = useImageUrl(file.id);
+  const [zoomed, setZoomed] = React.useState(false);
   const label = file.title || file.name || m.message.file;
   const href = file.permalink || file.url_private;
   const kind = (file.filetype ?? "").toLowerCase();
@@ -265,6 +278,48 @@ function FileCard({ file }: { file: SlackFile }) {
         >
           {file.preview}
         </pre>
+      </div>
+    );
+  }
+
+  if (isImage && src) {
+    // Sized from the original's proportions before it decodes: nothing below
+    // moves while images load, which keeps the scroll position steady.
+    const box = imageBox(file.original_w, file.original_h);
+    const image = (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={label}
+        loading="lazy"
+        decoding="async"
+        data-zoom={isStatic ? "" : undefined}
+        className="block h-auto max-w-full rounded-[8px] border border-[var(--c-card-border)] bg-[var(--c-hover)] object-contain"
+        style={
+          box
+            ? { width: box.width, aspectRatio: `${box.width} / ${box.height}` }
+            : { maxHeight: IMAGE_MAX_H, maxWidth: IMAGE_MAX_W }
+        }
+      />
+    );
+    return (
+      <div className="max-w-[min(480px,100%)]">
+        <div className="mb-1 truncate text-[13px] text-[var(--c-muted)]">{label}</div>
+        {isStatic ? (
+          image
+        ) : (
+          <button
+            type="button"
+            onClick={() => setZoomed(true)}
+            title={m.message.zoom}
+            className="block cursor-zoom-in border-0 bg-transparent p-0"
+          >
+            {image}
+          </button>
+        )}
+        {zoomed ? (
+          <ImageZoom src={src} alt={label} closeLabel={m.message.zoomClose} onClose={() => setZoomed(false)} />
+        ) : null}
       </div>
     );
   }
@@ -528,7 +583,7 @@ export const Message = React.memo(function Message({
         {hasCards ? (
           <div className="mt-1.5 flex flex-col gap-1.5">
             {message.files.map((f, i) => (
-              <FileCard key={f.id ?? i} file={f} />
+              <FileCard key={f.id ?? i} file={f} isStatic={isStatic} />
             ))}
           </div>
         ) : null}

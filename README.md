@@ -118,6 +118,7 @@ npm run dev        # or: npm run build && npm start
 | `SLACK_VIEWER_SESSION_TTL_HOURS` | `12` | how long a token sign-in lasts |
 | `NEXT_PUBLIC_LOQUARIUM_EXTENSION_ID` | the unpacked extension's ID | the browser extension to talk to (set it once it is on the Chrome Web Store) |
 | `SLACK_API_BASE` | `https://slack.com/api` | point the API elsewhere, for tests |
+| `SLACK_FILES_ORIGIN` | — | fetch Slack files from another origin, for tests |
 
 ## Features
 
@@ -125,6 +126,11 @@ npm run dev        # or: npm run build && npm start
   [Connecting to Slack](#connecting-to-slack)), or open / drop `.json` files.
 - **Library** kept in the browser (IndexedDB): archives per workspace,
   recently opened conversations, nothing sent to a server.
+- **Screenshots kept**: the images attached to messages are downloaded with the
+  conversation (Slack's thumbnail up to 1024 px — legible, a fraction of the
+  original's weight), shown in the messages, enlarged on click, and embedded in
+  the exported HTML page. Other attachments stay a card with a link to Slack.
+  An update only downloads the new ones. Untick *Import screenshots* to skip them.
 - **Large conversations stay fluid**: a conversation opens on its latest 150
   messages, and older ones are added as you scroll up (or with the button at
   the top). Search and the author filter still cover the whole conversation.

@@ -19,11 +19,13 @@ import { ExportSheet } from "@/components/app/export-sheet";
 import { IconButton, LqButton, SearchField, Segmented, Tag } from "@/components/app/ui";
 import { Message } from "@/components/slack/message";
 import { MessageList } from "@/components/slack/message-list";
+import { ImagesProvider, useObjectUrls } from "@/components/slack/images";
 import { useI18n } from "@/lib/i18n/react";
 import type { Route } from "@/lib/app/route";
 import type { ExportRecord } from "@/lib/app/exports-history";
 import {
   loadConversation,
+  loadImages,
   touchConversation,
   type Archive,
   type ConversationSummary,
@@ -111,17 +113,23 @@ export function ArchiveView({
 
   /* ------------------------------------------------------------ loading */
 
-  const [loaded, setLoaded] = React.useState<{ key: string; data: SlackConversation | null } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = React.useState<{
+    key: string;
+    data: SlackConversation | null;
+    /** Screenshots kept with it, by Slack file ID. */
+    images: Map<string, Blob>;
+  } | null>(null);
   const loadKey = `${route.archiveId}/${route.conversationId ?? ""}`;
 
   React.useEffect(() => {
     if (!route.conversationId) return;
     let cancelled = false;
-    void loadConversation(route.archiveId, route.conversationId).then((data) => {
+    void Promise.all([
+      loadConversation(route.archiveId, route.conversationId),
+      loadImages(route.archiveId, route.conversationId).catch(() => new Map<string, Blob>()),
+    ]).then(([data, images]) => {
       if (cancelled) return;
-      setLoaded({ key: loadKey, data });
+      setLoaded({ key: loadKey, data, images });
       if (data) {
         void touchConversation(route.archiveId, route.conversationId!).then(onChanged);
       }
@@ -134,6 +142,8 @@ export function ArchiveView({
   }, [loadKey]);
 
   const conversation = loaded?.key === loadKey ? loaded.data : null;
+  const imageBlobs = loaded?.key === loadKey ? loaded.images : null;
+  const imageUrls = useObjectUrls(imageBlobs);
   const loading = Boolean(route.conversationId) && loaded?.key !== loadKey;
 
   /* ------------------------------------------------------------ derived */
@@ -308,6 +318,7 @@ export function ArchiveView({
   const hasConversation = Boolean(route.conversationId);
 
   return (
+    <ImagesProvider images={imageUrls}>
     <div className="relative flex min-h-0 flex-1">
       <Navigator
         archive={archive}
@@ -526,6 +537,7 @@ export function ArchiveView({
           meta={meta}
           conversation={conversation}
           messages={messages}
+          images={imageBlobs}
           directory={directory}
           overrides={overrides}
           showEmail={showEmail}
@@ -538,6 +550,7 @@ export function ArchiveView({
         />
       ) : null}
     </div>
+    </ImagesProvider>
   );
 }
 

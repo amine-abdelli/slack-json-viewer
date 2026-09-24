@@ -123,6 +123,8 @@ export const ru: Messages = {
   },
 
   message: {
+    zoom: "Увеличить",
+    zoomClose: "Закрыть (Esc)",
     reacted: "{who}: реакция :{emoji}:",
     people: plural({
       one: "{n} человек",
@@ -424,6 +426,12 @@ export const ru: Messages = {
       other: "{n} человека",
     }),
     peopleKnown: plural({ one: "{n} уже известен", few: "{n} уже известны", many: "{n} уже известны", other: "{n} уже известны" }),
+    withImages: "Импортировать снимки экрана",
+    withImagesHint: "Изображения из сообщений в среднем размере, хранятся на этом устройстве.",
+    imagesProgress: "Изображения {done}/{total}",
+    images: plural({ one: "{n} изображение", few: "{n} изображения", many: "{n} изображений", other: "{n} изображения" }),
+    imagesMissing: plural({ one: "{n} недоступно", few: "{n} недоступно", many: "{n} недоступно", other: "{n} недоступно" }),
+    extensionOutdated: "Обновите расширение Loquarium, чтобы импортировать изображения.",
     skipped: "пропущено",
     runErrorTitle: "Не удалось прочитать {name}",
     retry: "Повторить",
@@ -456,6 +464,7 @@ export const ru: Messages = {
     statMessages: "Сообщения",
     statThreads: "Ветки",
     statPeople: "Люди",
+    statImages: "Снимки экрана",
     statSize: "Размер",
     statWhere: "Хранение",
     openArchive: "Открыть архив",

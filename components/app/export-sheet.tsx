@@ -44,6 +44,22 @@ function safeFileName(name: string): string {
  * The export side sheet: scope, format, options, then a file generated in
  * this browser. Every export is recorded in the Exports history.
  */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** The page is a single file: its images go in as `data:` URLs. */
+async function toDataUrls(images: ReadonlyMap<string, Blob>): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  for (const [id, blob] of images) out.set(id, await blobToDataUrl(blob));
+  return out;
+}
+
 export function ExportSheet({
   open,
   onOpenChange,
@@ -52,6 +68,7 @@ export function ExportSheet({
   meta,
   conversation,
   messages,
+  images,
   directory,
   overrides,
   showEmail,
@@ -66,6 +83,8 @@ export function ExportSheet({
   meta: ConversationMeta;
   conversation: SlackConversation;
   messages: NormalizedMessage[];
+  /** Screenshots kept with the conversation: embedded in the HTML page. */
+  images: ReadonlyMap<string, Blob> | null;
   directory: UserDirectory;
   overrides: Record<string, string>;
   showEmail: boolean;
@@ -106,6 +125,7 @@ export function ExportSheet({
           i18n,
           meta,
           messages,
+          images: images ? await toDataUrls(images) : undefined,
           directory,
           overrides,
           showEmail: emails,

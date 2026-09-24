@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { ImagesProvider } from "@/components/slack/images";
 import { MessageList } from "@/components/slack/message-list";
 import { INTL_TAGS } from "@/lib/i18n/config";
 import { StaticI18nProvider, type I18n } from "@/lib/i18n/react";
@@ -17,6 +18,8 @@ export interface ExportOptions {
   i18n: I18n;
   meta: ConversationMeta;
   messages: NormalizedMessage[];
+  /** Slack file ID → `data:` URL, for the screenshots kept with the conversation. */
+  images?: ReadonlyMap<string, string>;
   directory: UserDirectory;
   overrides: Record<string, string>;
   showEmail: boolean;
@@ -45,6 +48,7 @@ function collectCss(): string {
 const FONT_OVERRIDE = `
 :root{--font-lato:"Lato","Slack-Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 html,body{margin:0;padding:0}
+img[data-zoom]{cursor:zoom-in}
 @media print{
   .no-print{display:none!important}
   .slack-msg{break-inside:avoid}
@@ -232,8 +236,27 @@ const RUNTIME = String.raw`
     readerMoved = true;
     scroller.scrollTo({ top: 0, behavior: 'smooth' });
   });
+  // Screenshots open full size over the page; a click or Escape closes them.
+  var zoom = null;
+  function closeZoom() { if (zoom) { zoom.remove(); zoom = null; } }
+  document.addEventListener('click', function (e) {
+    var img = e.target && e.target.closest ? e.target.closest('img[data-zoom]') : null;
+    if (!img) return;
+    closeZoom();
+    zoom = document.createElement('div');
+    zoom.setAttribute('role', 'dialog');
+    zoom.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;background:rgba(0,0,0,.85);cursor:zoom-out';
+    var big = document.createElement('img');
+    big.src = img.src;
+    big.alt = img.alt;
+    big.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:6px';
+    zoom.appendChild(big);
+    zoom.addEventListener('click', closeZoom);
+    document.body.appendChild(zoom);
+  });
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); search.focus(); search.select(); }
+    if (e.key === 'Escape' && zoom) { closeZoom(); return; }
     if (e.key === 'Escape') {
       if (!panel.hidden) { closeThread(); return; }
       if (document.activeElement === search) { search.value = ''; apply(); }
@@ -318,13 +341,15 @@ export async function buildStandaloneHtml(options: ExportOptions): Promise<strin
 
   const body = renderToStaticMarkup(
     <StaticI18nProvider value={i18n}>
-      <MessageList
-        messages={options.messages}
-        directory={options.directory}
-        overrides={options.overrides}
-        showEmail={options.showEmail}
-        isStatic
-      />
+      <ImagesProvider images={options.images ?? null}>
+        <MessageList
+          messages={options.messages}
+          directory={options.directory}
+          overrides={options.overrides}
+          showEmail={options.showEmail}
+          isStatic
+        />
+      </ImagesProvider>
     </StaticI18nProvider>
   );
 

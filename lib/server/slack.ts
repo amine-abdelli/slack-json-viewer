@@ -125,7 +125,7 @@ export function logout(jar: CredentialJar, rawWorkspace: string): void {
 /* -------------------------------------------------------------------------- */
 
 /** Reads this browser's credentials, or explains that it has to sign in. */
-function credentialsFor(jar: CredentialJar, workspace: string): SlackCredentials {
+export function credentialsFor(jar: CredentialJar, workspace: string): SlackCredentials {
   const creds = jar.get(workspace);
   if (!creds) {
     throw new BridgeError(

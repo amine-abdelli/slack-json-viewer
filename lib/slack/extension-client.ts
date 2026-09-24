@@ -97,3 +97,19 @@ export async function extensionCall(
   const res = await send<TransportResponse>({ type: "call", team, method, params });
   return { status: res.status, retryAfter: res.retryAfter, body: res.body };
 }
+
+/** One image attached to a message, downloaded by the extension with the browser's session. */
+export async function extensionFile(
+  team: string,
+  url: string,
+): Promise<{ status: number; retryAfter?: number; blob?: Blob }> {
+  const res = await send<{ status: number; retryAfter?: number; type?: string; data?: string }>(
+    { type: "file", team, url },
+    60_000,
+  );
+  if (res.status !== 200 || !res.data) return { status: res.status, retryAfter: res.retryAfter };
+  const binary = atob(res.data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return { status: 200, blob: new Blob([bytes], { type: res.type || "image/png" }) };
+}

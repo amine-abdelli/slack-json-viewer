@@ -43,12 +43,16 @@ import { useI18n } from "@/lib/i18n/react";
 import {
   FILES_ARCHIVE_ID,
   loadConversation,
+  loadImages,
   saveConversations,
+  saveImage,
   slackArchiveId,
+  updateImageStats,
   type Archive,
 } from "@/lib/library/store";
 import { toImported } from "@/lib/library/summary";
 import { knownThreads, reuseReplies } from "@/lib/slack/api-core";
+import { collectScreenshots } from "@/lib/slack/screenshots";
 import {
   BridgeClientError,
   fetchStatus,
@@ -138,6 +142,8 @@ interface DoneStats {
   messages: number;
   threads: number;
   people: number;
+  /** Screenshots kept, when the import fetched any. */
+  images?: number;
   bytes: number;
   at: number;
 }
@@ -145,6 +151,60 @@ interface DoneStats {
 /* -------------------------------------------------------------------------- */
 /*  Import wizard                                                              */
 /* -------------------------------------------------------------------------- */
+
+/** Screenshots downloaded a few at a time: files are not Web API calls, but Slack still paces them. */
+const IMAGE_CONCURRENCY = 4;
+
+/**
+ * Downloads the screenshots of one conversation that the library does not
+ * have yet — an update only fetches the new ones. One that Slack will not serve
+ * is counted as missing; the message keeps its card and link.
+ */
+async function importImages(
+  src: SlackSource,
+  archiveId: string,
+  conversationId: string,
+  raw: unknown,
+  signal: AbortSignal,
+  onProgress: (done: number, total: number) => void,
+): Promise<{ total: number; kept: number; missing: number; outdated: boolean }> {
+  const refs = collectScreenshots((raw ?? {}) as { messages?: unknown });
+  if (refs.length === 0) return { total: 0, kept: 0, missing: 0, outdated: false };
+  const have = await loadImages(archiveId, conversationId).catch(() => new Map<string, Blob>());
+  const todo = refs.filter((r) => !have.has(r.id));
+  let kept = refs.length - todo.length;
+  let missing = 0;
+  let done = kept;
+  let outdated = false;
+  onProgress(done, refs.length);
+
+  let next = 0;
+  const worker = async () => {
+    while (!outdated && !signal.aborted) {
+      const ref = todo[next++];
+      if (!ref) return;
+      try {
+        const blob = await src.image(ref.url, signal);
+        if (blob) {
+          await saveImage(archiveId, conversationId, ref.id, blob);
+          kept += 1;
+        } else {
+          missing += 1;
+        }
+      } catch (err) {
+        if (signal.aborted) throw err;
+        // An extension from before images existed answers "unknown_message".
+        if (err instanceof ExtensionError && /unknown_message/.test(err.message)) outdated = true;
+        else missing += 1;
+      }
+      done += 1;
+      onProgress(done, refs.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(IMAGE_CONCURRENCY, todo.length) }, worker));
+  if (signal.aborted) throw new Error("aborted");
+  return { total: refs.length, kept, missing, outdated };
+}
 
 export function ImportView({
   bridge,
@@ -234,6 +294,8 @@ export function ImportView({
   const [filter, setFilter] = React.useState("");
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
   const [withUsers, setWithUsers] = React.useState(true);
+  const [withImages, setWithImages] = React.useState(true);
+  const [imagesNotice, setImagesNotice] = React.useState<string | null>(null);
   const [memberOnly, setMemberOnly] = React.useState(true);
 
   /** Where the conversations are read from, once a workspace is picked. */
@@ -380,6 +442,9 @@ export function ImportView({
     const ids = new Set<string>();
     const imported: { id: string; data: SlackConversation }[] = [];
     let archive: Archive | null = null;
+    /** Turned off for the rest of the run when the extension is too old to fetch files. */
+    let imagesAllowed = true;
+    setImagesNotice(null);
 
     try {
       for (const channel of picked) {
@@ -410,7 +475,22 @@ export function ImportView({
               [toImported(data, channel)],
             );
             imported.push({ id: data.channel_id, data });
-            setLine(channel.id, { status: "done", right: p(m.viewer.messages, data.messages.length) });
+            let right = p(m.viewer.messages, data.messages.length);
+            if (withImages && imagesAllowed) {
+              const images = await importImages(src, archive.id, channel.id, raw, signal, (done, total) =>
+                setLine(channel.id, { right: t(m.importer.imagesProgress, { done, total }) }),
+              );
+              if (images.outdated) {
+                imagesAllowed = false;
+                setImagesNotice(m.importer.extensionOutdated);
+              }
+              if (images.total > 0) {
+                archive = (await updateImageStats(archive.id, channel.id)) ?? archive;
+                right += ` · ${p(m.importer.images, images.kept)}`;
+                if (images.missing > 0) right += ` · ${p(m.importer.imagesMissing, images.missing)}`;
+              }
+            }
+            setLine(channel.id, { status: "done", right });
             finished = true;
           } catch (err) {
             if (signal.aborted) throw err;
@@ -483,7 +563,12 @@ export function ImportView({
         bytes: final
           ? final.conversations
               .filter((c) => imported.some((i) => i.id === c.id))
-              .reduce((s, c) => s + c.bytes, 0)
+              .reduce((s, c) => s + c.bytes + (c.imageBytes ?? 0), 0)
+          : 0,
+        images: final
+          ? final.conversations
+              .filter((c) => imported.some((i) => i.id === c.id))
+              .reduce((s, c) => s + (c.imageCount ?? 0), 0)
           : 0,
         at: Date.now(),
       });
@@ -954,6 +1039,12 @@ export function ImportView({
                   label={m.connect.resolveNames}
                   hint={m.importer.resolveHint}
                 />
+                <CheckboxRow
+                  checked={withImages}
+                  onChange={setWithImages}
+                  label={m.importer.withImages}
+                  hint={m.importer.withImagesHint}
+                />
               </div>
               {matchCount > MAX_VISIBLE_CHANNELS ? (
                 <div className="flex items-center gap-2 rounded-[6px] bg-info-soft px-3 py-[9px] text-[13px] text-fg-2">
@@ -1105,6 +1196,12 @@ export function ImportView({
                     </li>
                   ))}
                 </ul>
+                {imagesNotice ? (
+                  <div className="flex items-center gap-2 rounded-[6px] bg-info-soft px-3 py-[9px] text-[13px] text-fg-2">
+                    <Info className="size-3.5" />
+                    {imagesNotice}
+                  </div>
+                ) : null}
                 {runError ? (
                   <ErrorBanner
                     title={t(m.importer.runErrorTitle, { name: runError.label })}
@@ -1264,6 +1361,7 @@ export function ImportView({
                   { k: m.importer.statMessages, v: fmt.number(done.messages) },
                   { k: m.importer.statThreads, v: fmt.number(done.threads) },
                   { k: m.importer.statPeople, v: fmt.number(done.people) },
+                  ...(done.images ? [{ k: m.importer.statImages, v: fmt.number(done.images) }] : []),
                   { k: m.importer.statSize, v: fmt.size(done.bytes) || "—" },
                   { k: m.importer.statWhere, v: m.app.onDevice },
                 ].map((s) => (
@@ -1273,6 +1371,12 @@ export function ImportView({
                   </div>
                 ))}
               </dl>
+              {imagesNotice ? (
+                <div className="flex items-center gap-2 rounded-[6px] bg-info-soft px-3 py-[9px] text-[13px] text-fg-2">
+                  <Info className="size-3.5" />
+                  {imagesNotice}
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2.5">
                 <LqButton size="lg" onClick={() => onOpen(done.archiveId, done.firstId)}>
                   {m.importer.openArchive}
