@@ -92,9 +92,13 @@ function collectUserIds(conversation: unknown, into: Set<string>) {
   for (const m of raw.matchAll(MENTION_ID)) into.add(m[1]);
 }
 
-function channelLabel(c: ChannelSummary, m: Messages): string {
+/** A DM is named after the other person, as in Slack, once the directory knows them. */
+function channelLabel(c: ChannelSummary, m: Messages, directory: UserDirectory): string {
   if (c.name) return c.name;
-  if (c.isIM) return c.user ? `${m.connect.directMessage} · ${c.user}` : m.connect.directMessage;
+  if (c.isIM) {
+    if (!c.user) return m.connect.directMessage;
+    return directory[c.user]?.name ?? `${m.connect.directMessage} · ${c.user}`;
+  }
   return c.id;
 }
 
@@ -114,9 +118,9 @@ function channelQuery(raw: string): string {
 }
 
 /** 0 = exact ID, 1 = name starts with the query, 2 = contains it, -1 = no match. */
-function channelRank(c: ChannelSummary, q: string, m: Messages): number {
+function channelRank(c: ChannelSummary, q: string, m: Messages, directory: UserDirectory): number {
   const id = c.id.toLowerCase();
-  const label = channelLabel(c, m).toLowerCase();
+  const label = channelLabel(c, m, directory).toLowerCase();
   if (id === q) return 0;
   if (label.startsWith(q)) return 1;
   if (label.includes(q) || id.includes(q) || (c.user?.toLowerCase().includes(q) ?? false)) return 2;
@@ -205,6 +209,9 @@ async function importImages(
   if (signal.aborted) throw new Error("aborted");
   return { total: refs.length, kept, missing, outdated };
 }
+
+/** DM partners looked up per request while the channel list is shown. */
+const DM_BATCH = 25;
 
 export function ImportView({
   bridge,
@@ -301,6 +308,50 @@ export function ImportView({
   /** Where the conversations are read from, once a workspace is picked. */
   const [source, setSource] = React.useState<SlackSource | null>(null);
 
+  /** The latest directory, for callbacks that must not re-run when it changes. */
+  const directoryRef = React.useRef(directory);
+  React.useEffect(() => {
+    directoryRef.current = directory;
+  }, [directory]);
+
+  /*
+   * DMs only carry the other person's ID. Those the directory does not know
+   * yet are looked up in the background, a batch at a time, so names replace
+   * IDs in the list as they arrive. Asked once: found names join the
+   * directory, unknown IDs are remembered as unresolvable.
+   */
+  const dmLookup = React.useRef<AbortController | null>(null);
+  React.useEffect(() => () => dmLookup.current?.abort(), []);
+  const resolveDmNames = React.useCallback(
+    (src: SlackSource, list: ChannelSummary[]) => {
+      dmLookup.current?.abort();
+      const skip = unresolvableIds(src.workspace);
+      const ids = [
+        ...new Set(list.filter((c) => c.isIM && c.user).map((c) => c.user!)),
+      ].filter((id) => !directoryRef.current[id] && !skip.has(id));
+      if (ids.length === 0) return;
+      const controller = new AbortController();
+      dmLookup.current = controller;
+      void (async () => {
+        for (let i = 0; i < ids.length && !controller.signal.aborted; i += DM_BATCH) {
+          const batch = ids.slice(i, i + DM_BATCH);
+          try {
+            const users = await src.users(batch, () => {}, controller.signal);
+            const dir = parseUserDirectory(JSON.stringify(users ?? []));
+            if (Object.keys(dir).length > 0) applyDirectory(dir, `${src.workspace}.slack.com`);
+            rememberUnresolvable(
+              src.workspace,
+              batch.filter((id) => !dir[id]),
+            );
+          } catch {
+            return; // signed out, rate limited for good, or left the page: IDs stay
+          }
+        }
+      })();
+    },
+    [applyDirectory],
+  );
+
   const loadChannels = React.useCallback(
     async (src: SlackSource, onlyMine: boolean) => {
       const list = await withBusy(m.connect.busyChannels, (signal) =>
@@ -310,10 +361,11 @@ export function ImportView({
       setSource(src);
       setWorkspace(src.workspace);
       setChannels(list);
+      resolveDmNames(src, list);
       setFilter("");
       setStep("pick");
     },
-    [m, pushLog, withBusy],
+    [m, pushLog, withBusy, resolveDmNames],
   );
 
   /* ---------------------------------------------------------- extension */
@@ -384,18 +436,22 @@ export function ImportView({
   const { visibleChannels, matchCount } = React.useMemo(() => {
     const q = channelQuery(filter);
     const ranked = channels
-      .map((c) => ({ c, rank: q ? channelRank(c, q, m) : 2 }))
+      .map((c) => ({ c, rank: q ? channelRank(c, q, m, directory) : 2 }))
       .filter(({ rank }) => rank >= 0)
       .sort((a, b) => {
         if (a.rank !== b.rank) return a.rank - b.rank;
         if (a.c.isArchived !== b.c.isArchived) return a.c.isArchived ? 1 : -1;
-        return channelLabel(a.c, m).localeCompare(channelLabel(b.c, m), INTL_TAGS[locale]);
+        return channelLabel(a.c, m, directory).localeCompare(
+          channelLabel(b.c, m, directory),
+          INTL_TAGS[locale],
+        );
       });
     return {
       visibleChannels: ranked.slice(0, MAX_VISIBLE_CHANNELS).map(({ c }) => c),
       matchCount: ranked.length,
     };
-  }, [channels, filter, m, locale]);
+  }, [channels, filter, m, locale, directory]);
+
 
   const inLibrary = React.useMemo(() => {
     const archive = source ? archives.find((a) => a.id === slackArchiveId(source.workspace)) : null;
@@ -432,7 +488,7 @@ export function ImportView({
     abortRef.current = controller;
     const { signal } = controller;
 
-    const initial: RunLine[] = picked.map((c) => ({ id: c.id, label: channelLabel(c, m), status: "pending" }));
+    const initial: RunLine[] = picked.map((c) => ({ id: c.id, label: channelLabel(c, m, directory), status: "pending" }));
     if (withUsers) initial.push({ id: "__users", label: m.importer.resolving, status: "pending" });
     setLines(initial);
     setRunError(null);
@@ -495,7 +551,7 @@ export function ImportView({
           } catch (err) {
             if (signal.aborted) throw err;
             setLine(channel.id, { status: "error", right: undefined });
-            setRunError({ label: channelLabel(channel, m), ...toError(err) });
+            setRunError({ label: channelLabel(channel, m, directory), ...toError(err) });
             const choice = await new Promise<"retry" | "skip">((resolve) => {
               decision.current = resolve;
             });
@@ -1084,7 +1140,7 @@ export function ImportView({
                           <ConversationIcon kind={kindOf(c)} />
                         </span>
                         <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2.5">
-                          <span className="font-medium break-words">{channelLabel(c, m)}</span>
+                          <span className="font-medium break-words">{channelLabel(c, m, directory)}</span>
                           <span className="font-mono text-[11.5px] text-fg-3">{c.id}</span>
                         </span>
                         {inLibrary.has(c.id) ? (
