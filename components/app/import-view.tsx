@@ -11,6 +11,7 @@ import {
   FileText,
   FolderOpen,
   HardDrive,
+  ChevronDown,
   Info,
   Loader,
   LogOut,
@@ -213,6 +214,13 @@ async function importImages(
 /** DM partners looked up per request while the channel list is shown. */
 const DM_BATCH = 25;
 
+/**
+ * Where the wizard was when the page left it: coming back to Import reopens
+ * the channel list of the same workspace instead of the start of the tunnel.
+ * Kept for the life of the tab (a module variable), not across reloads.
+ */
+let resume: { source: SlackSource; channels: ChannelSummary[]; memberOnly: boolean } | null = null;
+
 export function ImportView({
   bridge,
   onBridgeChange,
@@ -241,7 +249,7 @@ export function ImportView({
   const i18n = useI18n();
   const { locale, m, t, p, fmt } = i18n;
   const directorySize = Object.keys(directory).length;
-  const [step, setStep] = React.useState<Step>("source");
+  const [step, setStep] = React.useState<Step>(() => (resume ? "pick" : "source"));
   const [path, setPath] = React.useState<"slack" | "file">("slack");
 
   /* ------------------------------------------------------ busy & errors */
@@ -290,23 +298,23 @@ export function ImportView({
 
   /* ------------------------------------------------------------- Slack */
 
-  const [workspace, setWorkspace] = React.useState("");
+  const [workspace, setWorkspace] = React.useState(() => resume?.source.workspace ?? "");
   const [addingWorkspace, setAddingWorkspace] = React.useState(false);
   const connected = (bridge?.workspaces.length ?? 0) > 0;
   const showSignInForm = !connected || addingWorkspace;
   const [token, setToken] = React.useState("");
   const [cookie, setCookie] = React.useState("");
 
-  const [channels, setChannels] = React.useState<ChannelSummary[]>([]);
+  const [channels, setChannels] = React.useState<ChannelSummary[]>(() => resume?.channels ?? []);
   const [filter, setFilter] = React.useState("");
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
   const [withUsers, setWithUsers] = React.useState(true);
   const [withImages, setWithImages] = React.useState(true);
   const [imagesNotice, setImagesNotice] = React.useState<string | null>(null);
-  const [memberOnly, setMemberOnly] = React.useState(true);
+  const [memberOnly, setMemberOnly] = React.useState(() => resume?.memberOnly ?? true);
 
   /** Where the conversations are read from, once a workspace is picked. */
-  const [source, setSource] = React.useState<SlackSource | null>(null);
+  const [source, setSource] = React.useState<SlackSource | null>(() => resume?.source ?? null);
 
   /** The latest directory, for callbacks that must not re-run when it changes. */
   const directoryRef = React.useRef(directory);
@@ -361,6 +369,7 @@ export function ImportView({
       setSource(src);
       setWorkspace(src.workspace);
       setChannels(list);
+      resume = { source: src, channels: list, memberOnly: onlyMine };
       resolveDmNames(src, list);
       setFilter("");
       setStep("pick");
@@ -378,6 +387,13 @@ export function ImportView({
     | { state: "empty" }
     | { state: "error"; message: string };
   const [ext, setExt] = React.useState<ExtState>({ state: "checking" });
+  const [othersOpen, setOthersOpen] = React.useState<boolean | null>(null);
+  /**
+   * Folded once the extension has found a workspace: signing in by hand is no
+   * longer needed. Open otherwise — including when the only connected
+   * workspaces are token sign-ins, whose cards live in this section.
+   */
+  const showOthers = othersOpen ?? ext.state !== "ready";
 
   /** Looks for the extension, then for the Slack workspaces signed in to this browser. */
   const checkExtension = React.useCallback(async () => {
@@ -428,6 +444,7 @@ export function ImportView({
   };
 
   const forget = async (wsp: string) => {
+    if (resume?.source.kind === "bridge" && resume.source.workspace === wsp) resume = null;
     await logoutWorkspace(wsp);
     const next = await fetchStatus();
     if (next) onBridgeChange(next);
@@ -879,11 +896,21 @@ export function ImportView({
               />
 
               <section className="flex flex-col gap-5">
-                <header>
-                  <h2 className="m-0 text-[13px] font-semibold text-fg-2">{m.importer.otherMethods}</h2>
-                  <p className="m-0 text-[12px] text-fg-3">{m.importer.otherMethodsHint}</p>
-                </header>
-                {!bridge?.available ? (
+                <button
+                  type="button"
+                  aria-expanded={showOthers}
+                  onClick={() => setOthersOpen(!showOthers)}
+                  className="flex items-center gap-2 self-start border-0 bg-transparent p-0 text-left"
+                >
+                  <ChevronDown
+                    className={cn("size-4 text-fg-3 transition-transform", !showOthers && "-rotate-90")}
+                  />
+                  <span>
+                    <span className="block text-[13px] font-semibold text-fg-2">{m.importer.otherMethods}</span>
+                    <span className="block text-[12px] text-fg-3">{m.importer.otherMethodsHint}</span>
+                  </span>
+                </button>
+                {!showOthers ? null : !bridge?.available ? (
                   <p className="m-0 rounded-[6px] bg-info-soft px-3 py-2 text-[13px] text-fg-2">
                     {m.importer.bridgeOff}
                   </p>
@@ -1031,7 +1058,14 @@ export function ImportView({
           {/* ------------------------------------------------------ pick */}
           {step === "pick" ? (
             <>
-              <BackLink onClick={() => setStep("slack")} label={m.common.back} />
+              <BackLink
+                onClick={() => {
+                  setStep("slack");
+                  // Reopened on the list: the extension was never looked for.
+                  if (ext.state === "checking") void checkExtension();
+                }}
+                label={m.common.back}
+              />
               <PageTitle
                 title={m.importer.pickTitle}
                 subtitle={
