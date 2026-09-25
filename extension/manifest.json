@@ -16,7 +16,7 @@
     "matches": [
       "http://localhost/*",
       "http://127.0.0.1/*",
-      "https://slack-json-viewer.vercel.app/*"
+      "https://loquarium.vercel.app/*"
     ]
   },
   "action": {
