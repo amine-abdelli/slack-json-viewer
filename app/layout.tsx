@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@/components/app/analytics";
 
 import "./globals.css";
 
@@ -31,7 +32,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        {/* Page views only, without cookies, the URL hash stripped. */}
+        <Analytics />
+      </body>
     </html>
   );
 }
