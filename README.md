@@ -132,10 +132,10 @@ npm run dev        # or: npm run build && npm start
   original's weight), shown in the messages, enlarged on click, and embedded in
   the exported HTML page. Other attachments stay a card with a link to Slack.
   An update only downloads the new ones. Untick *Import screenshots* to skip them.
-- **Who is in a conversation**: the sidebar lists those who *wrote* (with their
-  message count — click one to filter), then the *other members* (from Slack's
-  member list, stored at import, up to 500; for an older group DM, from the
-  handles in its name), then those who only *reacted or were mentioned*.
+- **Who is in a conversation**: the sidebar lists the *participants* — those
+  who wrote, with their message count (click one to filter) — then those who
+  only *reacted or were mentioned*. Slack's member list is stored at import
+  (up to 500) but not shown.
 - **Large conversations stay fluid**: a conversation opens on its latest 150
   messages, and older ones are added as you scroll up (or with the button at
   the top). Search and the author filter still cover the whole conversation.

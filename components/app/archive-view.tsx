@@ -340,7 +340,6 @@ export function ArchiveView({
         searchRef={navSearch}
         unresolvedCount={unresolved.length}
         people={people}
-        members={extraPeople.members}
         others={extraPeople.others}
         counts={counts}
         author={author}
@@ -584,7 +583,6 @@ function Navigator({
   searchRef,
   unresolvedCount,
   people,
-  members,
   others,
   counts,
   author,
@@ -604,7 +602,6 @@ function Navigator({
   searchRef: React.Ref<HTMLInputElement>;
   unresolvedCount: number;
   people: string[];
-  members: (string | HandleOnly)[];
   others: string[];
   counts: Map<string, number>;
   author: string | null;
@@ -756,7 +753,7 @@ function Navigator({
                 </button>
               ) : null}
             </div>
-            {members.length > 0 || others.length > 0 ? (
+            {others.length > 0 ? (
               <div className="px-2 pt-1 pb-0.5 text-[11px] text-fg-3">{m.archive.wrote}</div>
             ) : null}
             {people.map((id) => {
@@ -806,13 +803,6 @@ function Navigator({
                 </div>
               );
             })}
-            <PeopleGroup
-              title={m.archive.otherMembers}
-              people={members}
-              directory={directory}
-              overrides={overrides}
-              onFix={onFix}
-            />
             <PeopleGroup
               title={m.archive.reactedOrMentioned}
               people={others}

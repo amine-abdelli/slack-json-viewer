@@ -21,7 +21,7 @@ export interface HandleOnly {
 export interface ConversationPeople {
   /** Members who did not write, as Slack IDs or, failing a match, handles. */
   members: (string | HandleOnly)[];
-  /** Neither writers nor members: they reacted, or were mentioned. */
+  /** Did not write: they reacted, or were mentioned (members or not). */
   others: string[];
 }
 
@@ -68,10 +68,9 @@ export function conversationPeople(
     }
   }
 
-  const inMembers = new Set(members.filter((m): m is string => typeof m === "string"));
   const seen = new Set<string>();
   for (const message of flattenMessages(conversation.messages)) mentionsIn(message, seen);
-  const others = [...seen].filter((id) => !wrote.has(id) && !inMembers.has(id) && !IGNORED.has(id));
+  const others = [...seen].filter((id) => !wrote.has(id) && !IGNORED.has(id));
 
   return { members, others };
 }

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowRight, FileCode2, HardDrive, Puzzle, ShieldCheck } from "lucide-react";
 
+import { GithubLink } from "@/components/slack/github-link";
 import { LanguageSwitcher } from "@/components/slack/language-switcher";
 import { Message } from "@/components/slack/message";
 import { useI18n } from "@/lib/i18n/react";
@@ -137,7 +138,10 @@ export function WelcomeView({
             <ShieldCheck className="size-[13px]" />
             {m.welcome.footer}
           </span>
-          <LanguageSwitcher />
+          <span className="flex items-center gap-3">
+            <GithubLink className="opacity-70" />
+            <LanguageSwitcher />
+          </span>
         </div>
       </main>
 

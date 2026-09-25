@@ -4,7 +4,6 @@ import * as React from "react";
 import { LogOut, Plug } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/slack/language-switcher";
-import { GithubLink } from "@/components/slack/github-link";
 import { IconButton, LqButton, PageTitle, Segmented, Switch } from "@/components/app/ui";
 import { useI18n } from "@/lib/i18n/react";
 import { clearLibrary, archiveBytes, type Archive } from "@/lib/library/store";
@@ -170,9 +169,6 @@ export function SettingsView({
           </p>
         </Card>
 
-        <div className="flex items-center gap-3 text-[12px] text-fg-3">
-          <GithubLink />
-        </div>
       </div>
     </main>
   );
